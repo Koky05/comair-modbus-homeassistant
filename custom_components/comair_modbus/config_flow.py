@@ -9,7 +9,7 @@ from pymodbus.client import AsyncModbusTcpClient
 from pymodbus.framer import FramerType
 
 from homeassistant import config_entries
-from homeassistant.config_entries import ConfigConfigFlowResult
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_PORT
 
 from .const import (
