@@ -9,8 +9,8 @@ from pymodbus.client import AsyncModbusTcpClient
 from pymodbus.framer import FramerType
 
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_PORT
-from homeassistant.data_entry_flow import FlowResult
 
 from .const import (
     BAUD_RATE_OPTIONS,
@@ -65,7 +65,7 @@ class ComairModbusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
 

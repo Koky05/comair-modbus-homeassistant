@@ -177,9 +177,9 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         data: dict[str, Any] = {}
 
         if len(registers) >= 3:
-            data["supply_fan_rpm"] = self._if_available(registers[0])
+            data["supply_fan_rpm"] = self._scale_rpm(registers[0])
             # registers[1] = 30015, skipped
-            data["extract_fan_rpm"] = self._if_available(registers[2])
+            data["extract_fan_rpm"] = self._scale_rpm(registers[2])
 
         return data
 
@@ -203,6 +203,12 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Handle signed int16
         if value >= 32768:
             value -= 65536
+        return round(value / 10.0, 1)
+
+    def _scale_rpm(self, value: int) -> float | None:
+        """Scale RPM value (stored as RPM * 10)."""
+        if value == UNAVAILABLE_VALUE:
+            return None
         return round(value / 10.0, 1)
 
     def _if_available(self, value: int) -> int | None:

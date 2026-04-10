@@ -10,7 +10,6 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONCENTRATION_PARTS_PER_MILLION,
     EntityCategory,
@@ -145,7 +144,7 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         native_unit_of_measurement="rpm",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
-        value_fn=lambda data: round(data["supply_fan_rpm"] * 0.1, 1) if data.get("supply_fan_rpm") is not None else None,
+        value_fn=lambda data: data.get("supply_fan_rpm"),
     ),
     ComairSensorEntityDescription(
         key="extract_fan_rpm",
@@ -155,7 +154,7 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         native_unit_of_measurement="rpm",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
-        value_fn=lambda data: round(data["extract_fan_rpm"] * 0.1, 1) if data.get("extract_fan_rpm") is not None else None,
+        value_fn=lambda data: data.get("extract_fan_rpm"),
     ),
     # =========================================================================
     # Power Sensor

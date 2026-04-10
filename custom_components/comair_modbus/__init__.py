@@ -35,8 +35,6 @@ from .coordinator import ComairModbusCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-type ComairModbusConfigEntry = ConfigEntry[ComairModbusRuntimeData]
-
 
 @dataclass
 class ComairModbusRuntimeData:
@@ -45,6 +43,9 @@ class ComairModbusRuntimeData:
     client: AsyncModbusTcpClient
     coordinator: ComairModbusCoordinator
     device_info: DeviceInfo
+
+
+ComairModbusConfigEntry = ConfigEntry[ComairModbusRuntimeData]
 
 
 async def async_setup_entry(
