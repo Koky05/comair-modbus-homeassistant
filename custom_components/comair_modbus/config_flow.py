@@ -125,7 +125,6 @@ class ComairModbusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     result = await client.read_input_registers(
                         address=0, count=1, device_id=slave_id
                     )
-                    client.close()
 
                     if not result.isError():
                         # Success - create entry
@@ -152,8 +151,11 @@ class ComairModbusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Error connecting to %s:%d - %s", host, port, err)
                 errors["base"] = "unknown"
             finally:
-                if client.connected:
-                    client.close()
+                try:
+                    if client.connected:
+                        client.close()
+                except Exception:
+                    pass
 
         return self.async_show_form(
             step_id="user",

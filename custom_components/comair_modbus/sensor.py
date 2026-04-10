@@ -1,6 +1,7 @@
 """Sensor platform for ComAir HRUC-Plus Modbus integration."""
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Callable
 
@@ -20,6 +21,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import ComairModbusConfigEntry
@@ -200,7 +202,7 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         name="Run Time",
         icon="mdi:timer",
         native_unit_of_measurement="d",
-        state_class=SensorStateClass.TOTAL_INCREASING,
+        state_class=SensorStateClass.TOTAL,
         value_fn=lambda data: data.get("run_time"),
     ),
     ComairSensorEntityDescription(
@@ -288,11 +290,13 @@ class ComairSensor(CoordinatorEntity[ComairModbusCoordinator], SensorEntity):
         return self.entity_description.value_fn(self.coordinator.data)
 
 
-class ComairEnergySensor(CoordinatorEntity[ComairModbusCoordinator], SensorEntity):
+class ComairEnergySensor(
+    CoordinatorEntity[ComairModbusCoordinator], RestoreEntity, SensorEntity
+):
     """Energy sensor that integrates power over time (Riemann sum)."""
 
     _attr_has_entity_name = True
-    _attr_name = "Energy"
+    _attr_translation_key = "energy"
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
     _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
@@ -311,6 +315,15 @@ class ComairEnergySensor(CoordinatorEntity[ComairModbusCoordinator], SensorEntit
         self._total_energy: float = 0.0
         self._last_update: float | None = None
 
+    async def async_added_to_hass(self) -> None:
+        """Restore last known energy value on HA restart."""
+        await super().async_added_to_hass()
+        if (last_state := await self.async_get_last_state()) is not None:
+            try:
+                self._total_energy = float(last_state.state)
+            except (ValueError, TypeError):
+                self._total_energy = 0.0
+
     @property
     def native_value(self) -> float | None:
         """Return accumulated energy in kWh."""
@@ -318,8 +331,6 @@ class ComairEnergySensor(CoordinatorEntity[ComairModbusCoordinator], SensorEntit
 
     def _handle_coordinator_update(self) -> None:
         """Integrate power over time on each coordinator update."""
-        import time
-
         now = time.monotonic()
 
         if self.coordinator.data is not None:

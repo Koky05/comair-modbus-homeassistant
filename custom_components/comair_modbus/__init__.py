@@ -112,7 +112,11 @@ async def async_setup_entry(
     coordinator = ComairModbusCoordinator(hass, entry, client, slave_id)
 
     # Fetch initial data
-    await coordinator.async_config_entry_first_refresh()
+    try:
+        await coordinator.async_config_entry_first_refresh()
+    except ConfigEntryNotReady:
+        client.close()
+        raise
 
     # Store runtime data
     entry.runtime_data = ComairModbusRuntimeData(

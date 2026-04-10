@@ -42,10 +42,10 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER,
             name=DOMAIN,
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
+            config_entry=entry,
         )
         self.client = client
         self.slave_id = slave_id
-        self.entry = entry
         self._last_data: dict[str, Any] = {}
         self._failure_count = 0
 
@@ -148,6 +148,10 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 RETRY_COUNT,
                 err,
             )
+            if not self._last_data:
+                raise UpdateFailed(
+                    f"No data available from ComAir: {err}"
+                ) from err
             if self._failure_count >= RETRY_COUNT:
                 raise UpdateFailed(
                     f"Error communicating with ComAir after {RETRY_COUNT} attempts: {err}"
@@ -189,7 +193,7 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             data["extract_fan_rpm"] = extract_rpm
 
             # Calculate fan speed percentage from max RPM (set in options)
-            max_rpm = self.entry.options.get(CONF_MAX_RPM, 0)
+            max_rpm = self.config_entry.options.get(CONF_MAX_RPM, 0)
             if max_rpm > 0:
                 if supply_rpm is not None:
                     data["supply_fan_pct"] = round(
@@ -222,7 +226,11 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Handle signed int16
         if value >= 32768:
             value -= 65536
-        return round(value / 10.0, 1)
+        temp = round(value / 10.0, 1)
+        if temp < -50 or temp > 80:
+            _LOGGER.warning("Temperature out of range: %s", temp)
+            return None
+        return temp
 
     def _scale_rpm(self, value: int) -> int | None:
         """Return RPM value (raw register value = RPM, no scaling)."""
