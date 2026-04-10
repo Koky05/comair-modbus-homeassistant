@@ -47,11 +47,7 @@ class ComairClimate(CoordinatorEntity[ComairModbusCoordinator], ClimateEntity):
         """Return current HVAC mode."""
         if self.coordinator.data is None:
             return HVACMode.OFF
-        mode = self.coordinator.data.get("current_mode", 0)
-        # Auto (0) is considered OFF in HVAC terms since it's automatic
-        # Any active preset (1-4) means the fan is running
-        if mode == 0:
-            return HVACMode.OFF
+        # MVHR unit is always running — Auto and all presets are FAN_ONLY
         return HVACMode.FAN_ONLY
 
     @property

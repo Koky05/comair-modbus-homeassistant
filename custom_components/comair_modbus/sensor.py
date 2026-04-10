@@ -143,7 +143,7 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         icon="mdi:fan",
         native_unit_of_measurement="rpm",
         state_class=SensorStateClass.MEASUREMENT,
-        suggested_display_precision=1,
+        suggested_display_precision=0,
         value_fn=lambda data: data.get("supply_fan_rpm"),
     ),
     ComairSensorEntityDescription(
@@ -153,8 +153,31 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         icon="mdi:fan",
         native_unit_of_measurement="rpm",
         state_class=SensorStateClass.MEASUREMENT,
-        suggested_display_precision=1,
+        suggested_display_precision=0,
         value_fn=lambda data: data.get("extract_fan_rpm"),
+    ),
+    # =========================================================================
+    # Fan Speed Percentage (calculated from RPM / max RPM, configured in options)
+    # =========================================================================
+    ComairSensorEntityDescription(
+        key="supply_fan_pct",
+        translation_key="supply_fan_pct",
+        name="Supply Fan Speed",
+        icon="mdi:fan",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=lambda data: data.get("supply_fan_pct"),
+    ),
+    ComairSensorEntityDescription(
+        key="extract_fan_pct",
+        translation_key="extract_fan_pct",
+        name="Extract Fan Speed",
+        icon="mdi:fan",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=lambda data: data.get("extract_fan_pct"),
     ),
     # =========================================================================
     # Power Sensor
