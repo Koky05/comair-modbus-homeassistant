@@ -4,7 +4,6 @@ from __future__ import annotations
 import logging
 
 from homeassistant.components.select import SelectEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -22,7 +21,7 @@ class ComairVentilationModeSelect(
     """Select entity for ventilation mode."""
 
     _attr_has_entity_name = True
-    _attr_name = "Ventilation Mode"
+    _attr_translation_key = "ventilation_mode"
     _attr_icon = "mdi:fan"
     _attr_options = list(VENTILATION_MODES.keys())
 

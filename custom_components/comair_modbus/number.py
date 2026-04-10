@@ -4,8 +4,6 @@ from __future__ import annotations
 import logging
 
 from homeassistant.components.number import NumberEntity, NumberMode
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -23,7 +21,7 @@ class ComairModeDurationNumber(
     """Number entity for mode duration in minutes."""
 
     _attr_has_entity_name = True
-    _attr_name = "Mode Duration"
+    _attr_translation_key = "mode_duration"
     _attr_icon = "mdi:timer"
     _attr_native_min_value = 0
     _attr_native_max_value = 255
