@@ -165,8 +165,8 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         if len(registers) >= 10:
             data["run_time"] = registers[0]  # 30001: Run Time (days)
-            data["service_timer"] = registers[1]  # 30002: Service Timer (months)
-            data["filter_timer"] = registers[2]  # 30003: Filter Timer (months)
+            data["service_timer"] = registers[1] + 1  # 30002: Service Timer (0-based)
+            data["filter_timer"] = registers[2] + 1  # 30003: Filter Timer (0-based)
             # 30004-30005: Faults (32-bit)
             data["faults"] = (registers[3] << 16) | registers[4]
             # 30006-30007: Warnings (32-bit)
