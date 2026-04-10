@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
+    CONF_MAX_RPM,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     INPUT_REGISTERS,
@@ -62,9 +63,9 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             else:
                 _LOGGER.debug("Failed to read status registers: %s", result)
 
-            # Batch 2: Fan RPM 30014-30016 (addresses 13-15)
+            # Batch 2: Fan RPM 30014, 30016 (addresses 13, 15)
             result = await self.client.read_input_registers(
-                address=13, count=3, device_id=self.slave_id
+                address=13, count=4, device_id=self.slave_id
             )
             if not result.isError():
                 data.update(self._parse_fan_registers(result.registers))
@@ -173,18 +174,36 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return data
 
     def _parse_fan_registers(self, registers: list[int]) -> dict[str, Any]:
-        """Parse fan RPM registers 30014-30016."""
+        """Parse fan RPM registers 30014-30017.
+
+        Reading 4 registers starting at address 13:
+          [0]=30014 (supply RPM), [1]=30015, [2]=30016 (extract RPM), [3]=30017
+        Also calculates fan speed percentage if max_rpm is configured.
+        """
         data: dict[str, Any] = {}
 
         if len(registers) >= 3:
-            data["supply_fan_rpm"] = self._scale_rpm(registers[0])
-            # registers[1] = 30015, skipped
-            data["extract_fan_rpm"] = self._scale_rpm(registers[2])
+            supply_rpm = self._scale_rpm(registers[0])  # 30014
+            extract_rpm = self._scale_rpm(registers[2])  # 30016
+            data["supply_fan_rpm"] = supply_rpm
+            data["extract_fan_rpm"] = extract_rpm
+
+            # Calculate fan speed percentage from max RPM (set in options)
+            max_rpm = self.entry.options.get(CONF_MAX_RPM, 0)
+            if max_rpm > 0:
+                if supply_rpm is not None:
+                    data["supply_fan_pct"] = round(
+                        min(supply_rpm / max_rpm * 100, 100), 1
+                    )
+                if extract_rpm is not None:
+                    data["extract_fan_pct"] = round(
+                        min(extract_rpm / max_rpm * 100, 100), 1
+                    )
 
         return data
 
     def _parse_binary_registers(self, registers: list[int]) -> dict[str, Any]:
-        """Parse binary status registers 30020-30024."""
+        """Parse binary status registers 30020-30024 (relay output states)."""
         data: dict[str, Any] = {}
 
         if len(registers) >= 5:
@@ -205,11 +224,11 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             value -= 65536
         return round(value / 10.0, 1)
 
-    def _scale_rpm(self, value: int) -> float | None:
-        """Scale RPM value (stored as RPM * 10)."""
+    def _scale_rpm(self, value: int) -> int | None:
+        """Return RPM value (raw register value = RPM, no scaling)."""
         if value == UNAVAILABLE_VALUE:
             return None
-        return round(value / 10.0, 1)
+        return value
 
     def _if_available(self, value: int) -> int | None:
         """Return value or None if it's the unavailable sentinel (0x8000)."""
@@ -220,6 +239,7 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if value == UNAVAILABLE_VALUE:
             return None
         return bool(value)
+
 
     async def async_write_user_override(self, mode: int, duration: int = 0) -> bool:
         """Write user override register (40030).
