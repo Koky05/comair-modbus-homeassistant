@@ -1,0 +1,75 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure ComAir HRUC-Plus",
+        "description": "Enter your Modbus gateway connection details.\n\nThese settings should match the BMS screen in the Vent-Axia Connect app.",
+        "data": {
+          "host": "Gateway IP Address",
+          "port": "Modbus TCP Port",
+          "slave_id": "Device ID (Slave Address)",
+          "baud_rate": "Baud Rate",
+          "data_bits": "Data Bits",
+          "parity": "Parity",
+          "stop_bits": "Stop Bits"
+        },
+        "data_description": {
+          "host": "IP address of your EW11A or similar Modbus gateway",
+          "port": "TCP port for Modbus communication (default: 502)",
+          "slave_id": "Modbus slave address of the HRUC unit (default: 2)",
+          "baud_rate": "Serial baud rate configured on the gateway",
+          "data_bits": "Number of data bits (7 or 8)",
+          "parity": "Parity setting (None, Even, or Odd)",
+          "stop_bits": "Number of stop bits (1 or 2)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the Modbus gateway. Check the IP address and port.",
+      "cannot_communicate": "Connected to gateway but cannot communicate with the HRUC unit. Check the Slave ID and wiring.",
+      "unknown": "An unexpected error occurred. Check the logs for details."
+    },
+    "abort": {
+      "already_configured": "This device is already configured."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "intake_temp": { "name": "Intake Temperature" },
+      "supply_temp": { "name": "Supply Temperature" },
+      "extract_temp": { "name": "Extract Temperature" },
+      "exhaust_temp": { "name": "Exhaust Temperature" },
+      "intake_humidity": { "name": "Intake Humidity" },
+      "extract_humidity": { "name": "Extract Humidity" },
+      "intake_co2": { "name": "Intake CO2" },
+      "extract_co2": { "name": "Extract CO2" },
+      "supply_fan_rpm": { "name": "Supply Fan RPM" },
+      "extract_fan_rpm": { "name": "Extract Fan RPM" },
+      "power": { "name": "Power" },
+      "heat_recovery_efficiency": { "name": "Heat Recovery Efficiency" },
+      "energy": { "name": "Energy" },
+      "run_time": { "name": "Run Time" },
+      "service_timer": { "name": "Service Timer" },
+      "filter_timer": { "name": "Filter Timer" },
+      "faults": { "name": "Faults" },
+      "warnings": { "name": "Warnings" },
+      "notifications": { "name": "Notifications" }
+    },
+    "binary_sensor": {
+      "attention_led": { "name": "Attention LED" },
+      "cooling_enable": { "name": "Cooling Enable" },
+      "preheater_enable": { "name": "Preheater Enable" },
+      "controlled_cooling": { "name": "Controlled Cooling" },
+      "controlled_heating": { "name": "Controlled Heating" }
+    },
+    "select": {
+      "ventilation_mode": { "name": "Ventilation Mode" }
+    },
+    "number": {
+      "mode_duration": { "name": "Mode Duration" }
+    },
+    "climate": {
+      "ventilation": { "name": "Ventilation" }
+    }
+  }
+}

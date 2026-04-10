@@ -1,0 +1,72 @@
+# Only publish HACS integration files
+# Ignore everything else in this project directory
+
+# APKs and decompiled apps
+*.apk
+*.xapk
+decompiled/
+ventaxia_connect*/
+
+# Logs and captures
+*.log
+*.txt
+logcat_*.txt
+*_capture.txt
+*_logcat.txt
+
+# Backups
+*.ab
+*.rar
+
+# PDFs and images (except BMS pinout)
+*.pdf
+
+# Scripts and tools
+*.sh
+Device/
+EW11_*/
+workarounds/
+
+# Test/utility scripts (not the integration)
+discover_device.py
+probe_device.py
+probe_mqtt.py
+try_pairing_mode.py
+test_modbus_*.py
+test_slave_ids.py
+
+# macOS
+.DS_Store
+
+# Private docs
+EMAIL_*.md
+email_*.txt
+CAPTURE_*.md
+EXTRACT_*.md
+PAIRING_*.md
+TLS_PSK_*.md
+QUICK_START_AFTER_PSK.md
+SETUP_GUIDE.md
+VENT_AXIA_CONNECT*.md
+VENTAXIA_CONNECT*.md
+WIFI_MODBUS_GATEWAY_OPTIONS.md
+EW11A_*.md
+MODBUS_DIAGNOSIS_HOME.md
+MODBUS_TROUBLESHOOTING.md
+COMPLETE_FINDINGS_SUMMARY.md
+FINDINGS_SUMMARY.md
+WHEN_HOME_CHECKLIST.md
+PROJECT_STATUS.md
+PROTOCOL.md
+QUICKSTART.md
+
+# Old modbus config
+modbus.yaml
+modbus_tcp_config.yaml
+
+# TLS-PSK integration (not for HACS)
+custom_components/comair/
+
+# OMC state
+.omc/
+.claude/
