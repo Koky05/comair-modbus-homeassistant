@@ -1,0 +1,12 @@
+{
+  "domain": "comair_modbus",
+  "name": "ComAir HRUC-Plus Modbus",
+  "codeowners": ["@Koky05"],
+  "config_flow": true,
+  "documentation": "https://github.com/Koky05/comair-modbus-homeassistant",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/Koky05/comair-modbus-homeassistant/issues",
+  "requirements": ["pymodbus>=3.6.0"],
+  "version": "1.0.0"
+}

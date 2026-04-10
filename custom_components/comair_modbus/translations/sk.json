@@ -1,0 +1,75 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Konfigurácia ComAir HRUC-Plus",
+        "description": "Zadajte údaje pre pripojenie k Modbus bráne.\n\nTieto nastavenia by mali zodpovedať obrazovke BMS v aplikácii Vent-Axia Connect.",
+        "data": {
+          "host": "IP adresa brány",
+          "port": "Modbus TCP port",
+          "slave_id": "ID zariadenia (Slave adresa)",
+          "baud_rate": "Prenosová rýchlosť",
+          "data_bits": "Dátové bity",
+          "parity": "Parita",
+          "stop_bits": "Stop bity"
+        },
+        "data_description": {
+          "host": "IP adresa vášho EW11A alebo podobnej Modbus brány",
+          "port": "TCP port pre Modbus komunikáciu (predvolené: 502)",
+          "slave_id": "Modbus slave adresa HRUC jednotky (predvolené: 2)",
+          "baud_rate": "Sériová prenosová rýchlosť nakonfigurovaná na bráne",
+          "data_bits": "Počet dátových bitov (7 alebo 8)",
+          "parity": "Nastavenie parity (Žiadna, Párna alebo Nepárna)",
+          "stop_bits": "Počet stop bitov (1 alebo 2)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nedá sa pripojiť k Modbus bráne. Skontrolujte IP adresu a port.",
+      "cannot_communicate": "Pripojené k bráne, ale nedá sa komunikovať s HRUC jednotkou. Skontrolujte Slave ID a zapojenie.",
+      "unknown": "Vyskytla sa neočakávaná chyba. Skontrolujte logy pre detaily."
+    },
+    "abort": {
+      "already_configured": "Toto zariadenie je už nakonfigurované."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "intake_temp": { "name": "Teplota nasávania" },
+      "supply_temp": { "name": "Teplota prívodného vzduchu" },
+      "extract_temp": { "name": "Teplota odvodného vzduchu" },
+      "exhaust_temp": { "name": "Teplota výfuku" },
+      "intake_humidity": { "name": "Vlhkosť nasávania" },
+      "extract_humidity": { "name": "Vlhkosť odvodu" },
+      "intake_co2": { "name": "CO2 nasávanie" },
+      "extract_co2": { "name": "CO2 odvod" },
+      "supply_fan_rpm": { "name": "Otáčky ventilátora prívodu" },
+      "extract_fan_rpm": { "name": "Otáčky ventilátora odvodu" },
+      "power": { "name": "Príkon" },
+      "heat_recovery_efficiency": { "name": "Účinnosť rekuperácie" },
+      "energy": { "name": "Energia" },
+      "run_time": { "name": "Doba prevádzky" },
+      "service_timer": { "name": "Servisný časovač" },
+      "filter_timer": { "name": "Časovač filtra" },
+      "faults": { "name": "Poruchy" },
+      "warnings": { "name": "Varovania" },
+      "notifications": { "name": "Notifikácie" }
+    },
+    "binary_sensor": {
+      "attention_led": { "name": "Výstražná LED" },
+      "cooling_enable": { "name": "Chladenie povolené" },
+      "preheater_enable": { "name": "Predohrev povolený" },
+      "controlled_cooling": { "name": "Riadené chladenie" },
+      "controlled_heating": { "name": "Riadené kúrenie" }
+    },
+    "select": {
+      "ventilation_mode": { "name": "Režim vetrania" }
+    },
+    "number": {
+      "mode_duration": { "name": "Trvanie režimu" }
+    },
+    "climate": {
+      "ventilation": { "name": "Vetranie" }
+    }
+  }
+}
