@@ -137,10 +137,10 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             else:
                 _LOGGER.debug("Failed to read user override: %s", result)
 
-            # Success - reset failure count
+            # Success - reset failure count and merge data
             self._failure_count = 0
-            self._last_data = data
-            return data
+            self._last_data.update(data)
+            return self._last_data.copy()
 
         except Exception as err:
             self._failure_count += 1
@@ -266,9 +266,15 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """
         if duration is None:
             duration = self.override_duration
+        # Validate mode (0=Auto, 1=Low, 2=Medium, 3=High, 4=Boost)
+        if mode not in range(5):
+            _LOGGER.error("Invalid ventilation mode: %d (must be 0-4)", mode)
+            return False
         # Duration must be non-zero — MVHR silently ignores writes with duration=0
         if duration <= 0:
             duration = DEFAULT_OVERRIDE_DURATION
+        if duration > 240:
+            duration = 240
         # Encode: MSB=mode, LSB=duration
         value = ((mode & 0xFF) << 8) | (duration & 0xFF)
 

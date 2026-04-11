@@ -6,6 +6,7 @@ import logging
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import ComairModbusConfigEntry
@@ -15,7 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ComairModeDurationNumber(
-    CoordinatorEntity[ComairModbusCoordinator], NumberEntity
+    CoordinatorEntity[ComairModbusCoordinator], RestoreEntity, NumberEntity
 ):
     """Number entity for mode duration in minutes."""
 
@@ -37,6 +38,15 @@ class ComairModeDurationNumber(
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.slave_id}_mode_duration"
         self._attr_device_info = device_info
+
+    async def async_added_to_hass(self) -> None:
+        """Restore last duration setting on HA restart."""
+        await super().async_added_to_hass()
+        if (last_state := await self.async_get_last_state()) is not None:
+            try:
+                self.coordinator.override_duration = int(float(last_state.state))
+            except (ValueError, TypeError):
+                pass
 
     @property
     def native_value(self) -> float | None:

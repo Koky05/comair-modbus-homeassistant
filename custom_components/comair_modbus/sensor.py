@@ -314,6 +314,7 @@ class ComairEnergySensor(
         self._attr_device_info = device_info
         self._total_energy: float = 0.0
         self._last_update: float | None = None
+        self._restored: bool = False
 
     async def async_added_to_hass(self) -> None:
         """Restore last known energy value on HA restart."""
@@ -323,10 +324,13 @@ class ComairEnergySensor(
                 self._total_energy = float(last_state.state)
             except (ValueError, TypeError):
                 self._total_energy = 0.0
+        self._restored = True
 
     @property
     def native_value(self) -> float | None:
         """Return accumulated energy in kWh."""
+        if not self._restored:
+            return None
         return round(self._total_energy, 4)
 
     def _handle_coordinator_update(self) -> None:
@@ -337,7 +341,8 @@ class ComairEnergySensor(
             power = self.coordinator.data.get("power")
             if power is not None and self._last_update is not None:
                 elapsed_hours = (now - self._last_update) / 3600.0
-                self._total_energy += (power / 1000.0) * elapsed_hours
+                if elapsed_hours > 0:
+                    self._total_energy += (power / 1000.0) * elapsed_hours
 
         self._last_update = now
         super()._handle_coordinator_update()
