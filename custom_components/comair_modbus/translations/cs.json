@@ -77,6 +77,21 @@
       "controlled_cooling": { "name": "Řízené chlazení" },
       "controlled_heating": { "name": "Řízené topení" }
     },
+    "switch": {
+      "virtual_input_1": { "name": "Virtuální vstup 1" },
+      "virtual_input_2": { "name": "Virtuální vstup 2" },
+      "virtual_input_3": { "name": "Virtuální vstup 3" },
+      "virtual_input_4": { "name": "Virtuální vstup 4" },
+      "virtual_input_5": { "name": "Virtuální vstup 5" },
+      "virtual_input_6": { "name": "Virtuální vstup 6" },
+      "virtual_input_7": { "name": "Virtuální vstup 7" },
+      "virtual_input_8": { "name": "Virtuální vstup 8" },
+      "virtual_input_9": { "name": "Virtuální vstup 9" },
+      "virtual_input_10": { "name": "Virtuální vstup 10" }
+    },
+    "button": {
+      "time_sync": { "name": "Synchronizace hodin" }
+    },
     "select": {
       "ventilation_mode": { "name": "Režim větrání" }
     },

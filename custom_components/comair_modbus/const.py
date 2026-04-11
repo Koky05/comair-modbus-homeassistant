@@ -12,6 +12,8 @@ DOMAIN: Final = "comair_modbus"
 PLATFORMS: Final[list[Platform]] = [
     Platform.SENSOR,
     Platform.BINARY_SENSOR,
+    Platform.SWITCH,
+    Platform.BUTTON,
     Platform.SELECT,
     Platform.NUMBER,
     Platform.CLIMATE,
