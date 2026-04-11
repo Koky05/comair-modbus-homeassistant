@@ -159,7 +159,7 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         value_fn=lambda data: data.get("extract_fan_rpm"),
     ),
     # =========================================================================
-    # Fan Speed Percentage (calculated from RPM / max RPM, configured in options)
+    # Fan Speed Percentage (calculated from RPM using fan curve)
     # =========================================================================
     ComairSensorEntityDescription(
         key="supply_fan_pct",

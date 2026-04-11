@@ -33,19 +33,6 @@
       "already_configured": "This device is already configured."
     }
   },
-  "options": {
-    "step": {
-      "init": {
-        "title": "ComAir HRUC-Plus Options",
-        "data": {
-          "max_rpm": "Maximum Fan RPM (at 100% speed)"
-        },
-        "data_description": {
-          "max_rpm": "Set to 0 to disable fan speed percentage sensors. Run the unit at Purge/100% mode and note the RPM to find this value."
-        }
-      }
-    }
-  },
   "entity": {
     "sensor": {
       "intake_temp": { "name": "Intake Temperature" },

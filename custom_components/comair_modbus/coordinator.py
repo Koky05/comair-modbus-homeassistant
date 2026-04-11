@@ -12,7 +12,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
-    CONF_MAX_RPM,
     DEFAULT_OVERRIDE_DURATION,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -179,12 +178,19 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         return data
 
+    # Fan curve constants (derived from measured data points):
+    # 8% → 818 RPM, 30% → 1150 RPM, 100% → 3400 RPM
+    # Curve: RPM = BASE_RPM + (MAX_RPM - BASE_RPM) * (pct/100)^1.5
+    # Inverse: pct = ((RPM - BASE_RPM) / (MAX_RPM - BASE_RPM))^(1/1.5) * 100
+    _FAN_BASE_RPM = 750
+    _FAN_MAX_RPM = 3400
+    _FAN_EXPONENT = 1.5
+
     def _parse_fan_registers(self, registers: list[int]) -> dict[str, Any]:
         """Parse fan RPM registers 30014-30017.
 
         Reading 4 registers starting at address 13:
           [0]=30014 (supply RPM), [1]=30015, [2]=30016 (extract RPM), [3]=30017
-        Also calculates fan speed percentage if max_rpm is configured.
         """
         data: dict[str, Any] = {}
 
@@ -194,19 +200,25 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             data["supply_fan_rpm"] = supply_rpm
             data["extract_fan_rpm"] = extract_rpm
 
-            # Calculate fan speed percentage from max RPM (set in options)
-            max_rpm = self.config_entry.options.get(CONF_MAX_RPM, 0)
-            if max_rpm > 0:
-                if supply_rpm is not None:
-                    data["supply_fan_pct"] = round(
-                        min(supply_rpm / max_rpm * 100, 100), 1
-                    )
-                if extract_rpm is not None:
-                    data["extract_fan_pct"] = round(
-                        min(extract_rpm / max_rpm * 100, 100), 1
-                    )
+            if supply_rpm is not None:
+                data["supply_fan_pct"] = self._rpm_to_pct(supply_rpm)
+            if extract_rpm is not None:
+                data["extract_fan_pct"] = self._rpm_to_pct(extract_rpm)
 
         return data
+
+    def _rpm_to_pct(self, rpm: int) -> float:
+        """Convert RPM to fan speed percentage using non-linear fan curve.
+
+        Fan curve: RPM = base + (max - base) * (pct/100)^1.5
+        Inverse:   pct = ((RPM - base) / (max - base))^(1/1.5) * 100
+        """
+        if rpm <= self._FAN_BASE_RPM:
+            return 0.0
+        if rpm >= self._FAN_MAX_RPM:
+            return 100.0
+        ratio = (rpm - self._FAN_BASE_RPM) / (self._FAN_MAX_RPM - self._FAN_BASE_RPM)
+        return round(ratio ** (1.0 / self._FAN_EXPONENT) * 100, 1)
 
     def _parse_binary_registers(self, registers: list[int]) -> dict[str, Any]:
         """Parse binary status registers 30020-30024 (relay output states)."""
