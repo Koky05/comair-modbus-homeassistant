@@ -23,7 +23,7 @@ class ComairTimeSyncButton(
 
     _attr_has_entity_name = True
     _attr_translation_key = "time_sync"
-    _attr_icon = "mdi:clock-sync"
+    _attr_icon = "mdi:clock-edit-outline"
     _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(
