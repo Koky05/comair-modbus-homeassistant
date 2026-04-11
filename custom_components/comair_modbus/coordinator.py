@@ -47,6 +47,7 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.client = client
         self.slave_id = slave_id
+        self.override_duration: int = DEFAULT_OVERRIDE_DURATION
         self._last_data: dict[str, Any] = {}
         self._failure_count = 0
 
@@ -251,18 +252,20 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
 
     async def async_write_user_override(
-        self, mode: int, duration: int = DEFAULT_OVERRIDE_DURATION
+        self, mode: int, duration: int | None = None
     ) -> bool:
         """Write user override register (40030).
 
         Args:
             mode: Ventilation mode (0=Auto, 1=Low, 2=Medium, 3=High, 4=Boost)
-            duration: Duration in minutes (15-240, step 15). The MVHR ignores
-                      duration=0, so default is 240 min (4 hours).
+            duration: Duration in minutes (15-240, step 15). If None, uses
+                      the current slider value. The MVHR ignores duration=0.
 
         Returns:
             True if successful, False otherwise
         """
+        if duration is None:
+            duration = self.override_duration
         # Duration must be non-zero — MVHR silently ignores writes with duration=0
         if duration <= 0:
             duration = DEFAULT_OVERRIDE_DURATION

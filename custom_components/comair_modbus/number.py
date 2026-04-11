@@ -9,7 +9,6 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import ComairModbusConfigEntry
-from .const import MODE_NAMES
 from .coordinator import ComairModbusCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -41,22 +40,15 @@ class ComairModeDurationNumber(
 
     @property
     def native_value(self) -> float | None:
-        """Return the current duration."""
-        if self.coordinator.data is None:
-            return None
-        return self.coordinator.data.get("mode_duration", 0)
+        """Return the current override duration setting."""
+        return self.coordinator.override_duration
 
     async def async_set_native_value(self, value: float) -> None:
-        """Set new duration value."""
+        """Set override duration. The next mode change will use this duration."""
         duration = int(value)
-        # Get current mode and update with new duration
-        current_mode = self.coordinator.data.get("current_mode", 0) if self.coordinator.data else 0
-        _LOGGER.debug(
-            "Setting mode duration to %d minutes for mode %s",
-            duration,
-            MODE_NAMES.get(current_mode, "Unknown"),
-        )
-        await self.coordinator.async_write_user_override(current_mode, duration)
+        self.coordinator.override_duration = duration
+        _LOGGER.debug("Override duration set to %d minutes", duration)
+        self.async_write_ha_state()
 
 
 async def async_setup_entry(
