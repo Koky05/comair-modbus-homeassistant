@@ -47,8 +47,7 @@ class ComairVentilationModeSelect(
         """Change the selected option."""
         mode = VENTILATION_MODES.get(option, 0)
         _LOGGER.debug("Setting ventilation mode to %s (mode=%d)", option, mode)
-        # Set mode indefinitely (duration=0)
-        await self.coordinator.async_write_user_override(mode, 0)
+        await self.coordinator.async_write_user_override(mode)
 
 
 async def async_setup_entry(

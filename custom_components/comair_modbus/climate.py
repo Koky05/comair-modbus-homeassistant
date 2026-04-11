@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import ComairModbusConfigEntry
-from .const import MODE_NAMES, VENTILATION_MODES
+from .const import DEFAULT_OVERRIDE_DURATION, MODE_NAMES, VENTILATION_MODES
 from .coordinator import ComairModbusCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -106,20 +106,17 @@ class ComairClimate(CoordinatorEntity[ComairModbusCoordinator], ClimateEntity):
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set HVAC mode."""
         if hvac_mode == HVACMode.OFF:
-            # Set to Auto (0) indefinitely
             _LOGGER.debug("Setting HVAC mode to OFF (Auto)")
-            await self.coordinator.async_write_user_override(0, 0)
+            await self.coordinator.async_write_user_override(0)
         else:
-            # Set to Medium (2) as default when turning on
             _LOGGER.debug("Setting HVAC mode to FAN_ONLY (Medium)")
-            await self.coordinator.async_write_user_override(2, 0)
+            await self.coordinator.async_write_user_override(2)
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set preset mode."""
         mode = VENTILATION_MODES.get(preset_mode, 0)
         _LOGGER.debug("Setting preset mode to %s (mode=%d)", preset_mode, mode)
-        # Set mode indefinitely
-        await self.coordinator.async_write_user_override(mode, 0)
+        await self.coordinator.async_write_user_override(mode)
 
 
 async def async_setup_entry(
