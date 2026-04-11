@@ -43,11 +43,13 @@ class ComairClimate(CoordinatorEntity[ComairModbusCoordinator], ClimateEntity):
         self._attr_device_info = device_info
 
     @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return self.coordinator.data is not None and super().available
+
+    @property
     def hvac_mode(self) -> HVACMode:
-        """Return current HVAC mode."""
-        if self.coordinator.data is None:
-            return HVACMode.OFF
-        # MVHR unit is always running — Auto and all presets are FAN_ONLY
+        """Return current HVAC mode — unit is always running."""
         return HVACMode.FAN_ONLY
 
     @property
