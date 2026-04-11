@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .const import (
     CONF_MAX_RPM,
+    DEFAULT_OVERRIDE_DURATION,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     INPUT_REGISTERS,
@@ -249,16 +250,22 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return bool(value)
 
 
-    async def async_write_user_override(self, mode: int, duration: int = 0) -> bool:
+    async def async_write_user_override(
+        self, mode: int, duration: int = DEFAULT_OVERRIDE_DURATION
+    ) -> bool:
         """Write user override register (40030).
 
         Args:
             mode: Ventilation mode (0=Auto, 1=Low, 2=Medium, 3=High, 4=Boost)
-            duration: Duration in minutes (0=indefinite)
+            duration: Duration in minutes (15-240, step 15). The MVHR ignores
+                      duration=0, so default is 240 min (4 hours).
 
         Returns:
             True if successful, False otherwise
         """
+        # Duration must be non-zero — MVHR silently ignores writes with duration=0
+        if duration <= 0:
+            duration = DEFAULT_OVERRIDE_DURATION
         # Encode: MSB=mode, LSB=duration
         value = ((mode & 0xFF) << 8) | (duration & 0xFF)
 

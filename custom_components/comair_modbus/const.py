@@ -33,6 +33,7 @@ DEFAULT_DATA_BITS: Final = 8
 DEFAULT_PARITY: Final = "None"
 DEFAULT_STOP_BITS: Final = 1
 DEFAULT_SCAN_INTERVAL: Final = 30
+DEFAULT_OVERRIDE_DURATION: Final = 240  # 4 hours (app uses 15 min steps)
 
 # Connection settings
 CONNECT_TIMEOUT: Final = 10

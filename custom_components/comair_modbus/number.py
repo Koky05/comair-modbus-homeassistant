@@ -23,9 +23,9 @@ class ComairModeDurationNumber(
     _attr_has_entity_name = True
     _attr_translation_key = "mode_duration"
     _attr_icon = "mdi:timer"
-    _attr_native_min_value = 0
-    _attr_native_max_value = 255
-    _attr_native_step = 1
+    _attr_native_min_value = 15
+    _attr_native_max_value = 240
+    _attr_native_step = 15
     _attr_native_unit_of_measurement = "min"
     _attr_mode = NumberMode.SLIDER
 
