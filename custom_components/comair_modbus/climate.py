@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import ComairModbusConfigEntry
-from .const import DEFAULT_OVERRIDE_DURATION, MODE_NAMES, VENTILATION_MODES
+from .const import MODE_NAMES, VENTILATION_MODES
 from .coordinator import ComairModbusCoordinator
 
 _LOGGER = logging.getLogger(__name__)
