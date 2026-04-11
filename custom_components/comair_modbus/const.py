@@ -283,4 +283,4 @@ MODE_NAMES: Final[dict[int, str]] = {v: k for k, v in VENTILATION_MODES.items()}
 # DEVICE INFO
 # ============================================================================
 MANUFACTURER: Final = "Ventilair/Vent-Axia"
-MODEL: Final = "HRUC-Plus 3 VL"
+MODEL: Final = "HRUC-Plus 3"
