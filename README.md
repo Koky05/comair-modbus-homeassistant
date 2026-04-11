@@ -36,11 +36,11 @@ Custom Home Assistant integration for **ComAir HRUC-Plus 3** / **Vent-Axia Senti
 The **ComAir HRUC-Plus 3** (also sold as **Vent-Axia Sentinel Kinetic Advance**) is a whole-house heat recovery ventilation unit (MVHR) with built-in Modbus RS485 support via the BMS connector.
 
 **Supported models:**
-| Device | Model | Tested |
-|--------|-------|--------|
-| ComAir HRUC-Plus 3 | Gen V | Yes |
-| Vent-Axia Sentinel Kinetic Advance | >2023 | Yes (same unit) |
-| Vent-Axia Sentinel Kinetic Apex | Gen V | Should work |
+| Device | Variants | Tested |
+|--------|----------|--------|
+| ComAir HRUC-Plus 3 | 250, 350 | 350 tested |
+| Vent-Axia Sentinel Kinetic Advance | 250S/SX, 350S/SX (LH/RH) | 350SX RH tested |
+| Vent-Axia Sentinel Kinetic Apex | Gen V | Should work (same Modbus map) |
 
 ### 2. Modbus RTU to TCP Gateway
 
