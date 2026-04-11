@@ -20,7 +20,6 @@ from .const import (
     BAUD_RATE_OPTIONS,
     CONF_BAUD_RATE,
     CONF_DATA_BITS,
-    CONF_MAX_RPM,
     CONF_PARITY,
     CONF_SLAVE_ID,
     CONF_STOP_BITS,
@@ -63,41 +62,10 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 )
 
 
-class ComairModbusOptionsFlow(config_entries.OptionsFlow):
-    """Handle options for ComAir HRUC-Plus Modbus."""
-
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Handle options flow."""
-        if user_input is not None:
-            return self.async_create_entry(data=user_input)
-
-        current_max_rpm = self.config_entry.options.get(CONF_MAX_RPM, 0)
-
-        return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(CONF_MAX_RPM, default=current_max_rpm): vol.All(
-                        vol.Coerce(int), vol.Range(min=0, max=10000)
-                    ),
-                }
-            ),
-        )
-
-
 class ComairModbusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for ComAir HRUC-Plus Modbus."""
 
     VERSION = 1
-
-    @staticmethod
-    def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry,
-    ) -> ComairModbusOptionsFlow:
-        """Get the options flow for this handler."""
-        return ComairModbusOptionsFlow()
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None

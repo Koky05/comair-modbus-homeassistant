@@ -128,18 +128,8 @@ async def async_setup_entry(
     # Forward to platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Listen for options updates (e.g., max RPM change)
-    entry.async_on_unload(entry.add_update_listener(_async_update_options))
-
     _LOGGER.info("ComAir Modbus setup complete for %s", host)
     return True
-
-
-async def _async_update_options(
-    hass: HomeAssistant, entry: ComairModbusConfigEntry
-) -> None:
-    """Handle options update — triggers data refresh with new settings."""
-    await entry.runtime_data.coordinator.async_request_refresh()
 
 
 async def async_unload_entry(

@@ -25,7 +25,6 @@ CONF_BAUD_RATE: Final = "baud_rate"
 CONF_DATA_BITS: Final = "data_bits"
 CONF_PARITY: Final = "parity"
 CONF_STOP_BITS: Final = "stop_bits"
-CONF_MAX_RPM: Final = "max_rpm"
 
 # Default values (matching Vent-Axia BMS settings)
 DEFAULT_PORT: Final = 502

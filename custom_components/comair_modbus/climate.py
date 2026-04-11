@@ -28,7 +28,7 @@ class ComairClimate(CoordinatorEntity[ComairModbusCoordinator], ClimateEntity):
     _attr_translation_key = "ventilation"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_supported_features = ClimateEntityFeature.PRESET_MODE
-    _attr_hvac_modes = [HVACMode.OFF, HVACMode.FAN_ONLY]
+    _attr_hvac_modes = [HVACMode.FAN_ONLY]
     _attr_preset_modes = list(VENTILATION_MODES.keys())
     _attr_icon = "mdi:hvac"
 
@@ -56,6 +56,13 @@ class ComairClimate(CoordinatorEntity[ComairModbusCoordinator], ClimateEntity):
         if self.coordinator.data is None:
             return None
         return self.coordinator.data.get("extract_temp")
+
+    @property
+    def current_humidity(self) -> float | None:
+        """Return the current humidity (extract/indoor air)."""
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.get("extract_humidity")
 
     @property
     def preset_mode(self) -> str | None:
@@ -104,13 +111,8 @@ class ComairClimate(CoordinatorEntity[ComairModbusCoordinator], ClimateEntity):
         return attrs
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
-        """Set HVAC mode."""
-        if hvac_mode == HVACMode.OFF:
-            _LOGGER.debug("Setting HVAC mode to OFF (Auto)")
-            await self.coordinator.async_write_user_override(0)
-        else:
-            _LOGGER.debug("Setting HVAC mode to FAN_ONLY (Medium)")
-            await self.coordinator.async_write_user_override(2)
+        """Set HVAC mode — unit is always running, only FAN_ONLY is valid."""
+        _LOGGER.debug("HVAC mode set to FAN_ONLY")
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set preset mode."""
