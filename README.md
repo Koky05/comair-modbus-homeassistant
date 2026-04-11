@@ -3,11 +3,11 @@
 [![HACS Compatible](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1.0+-blue.svg)](https://www.home-assistant.io/)
 
-Custom Home Assistant integration for **ComAir HRUC-Plus 3 VL** (Vent-Axia) ventilation units via Modbus RTU over TCP.
+Custom Home Assistant integration for **ComAir HRUC-Plus 3** / **Vent-Axia Sentinel Kinetic Advance** MVHR ventilation units via Modbus RTU over TCP.
 
 ## Features
 
-- **27 Entities**: Comprehensive sensor and control coverage
+- **38 Entities**: Comprehensive sensor and control coverage
 - **Config Flow UI**: Add via Settings → Integrations (no YAML editing)
 - **BMS Settings**: Configuration matches Vent-Axia Connect app
 - **Climate Control**: HVAC-like entity with preset modes
@@ -19,10 +19,12 @@ Custom Home Assistant integration for **ComAir HRUC-Plus 3 VL** (Vent-Axia) vent
 
 | Platform | Count | Entities |
 |----------|-------|----------|
-| sensor | 18 | Temperatures (4), Humidity (2), CO2 (2), Fan RPM (2), Power, Energy, Heat Recovery, Timers (3), Diagnostics (3) |
+| sensor | 20 | Temperatures (4), Humidity (2), CO2 (2), Fan RPM (2), Fan Speed % (2), Power, Energy, Heat Recovery, Timers (3), Diagnostics (3) |
 | binary_sensor | 5 | Attention LED, Cooling Enable, Preheater Enable, Controlled Cooling/Heating |
+| switch | 10 | Virtual Inputs 1-10 (BMS control mapping) |
+| button | 1 | Sync Clock (write HA time to MVHR) |
 | select | 1 | Ventilation Mode (Auto/Low/Medium/High/Boost) |
-| number | 1 | Mode Duration |
+| number | 1 | Mode Duration (15-240 min, step 15) |
 | climate | 1 | Ventilation with preset modes |
 
 ---
@@ -31,13 +33,14 @@ Custom Home Assistant integration for **ComAir HRUC-Plus 3 VL** (Vent-Axia) vent
 
 ### 1. ComAir HRUC-Plus Ventilation Unit
 
-The **ComAir HRUC-Plus 3 VL** (also sold as **Vent-Axia Sentinel Kinetic**) is a whole-house heat recovery ventilation unit (MVHR) with built-in Modbus RS485 support via the BMS connector.
+The **ComAir HRUC-Plus 3** (also sold as **Vent-Axia Sentinel Kinetic Advance**) is a whole-house heat recovery ventilation unit (MVHR) with built-in Modbus RS485 support via the BMS connector.
 
 **Supported models:**
 | Device | Model | Tested |
 |--------|-------|--------|
-| ComAir HRUC-Plus 3 VL | Various | Yes |
-| Vent-Axia Sentinel Kinetic | Similar | Should work |
+| ComAir HRUC-Plus 3 | Gen V | Yes |
+| Vent-Axia Sentinel Kinetic Advance | >2023 | Yes (same unit) |
+| Vent-Axia Sentinel Kinetic Apex | Gen V | Should work |
 
 ### 2. Modbus RTU to TCP Gateway
 
