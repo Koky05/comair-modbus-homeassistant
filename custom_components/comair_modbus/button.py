@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -38,7 +38,7 @@ class ComairTimeSyncButton(
 
     async def async_press(self) -> None:
         """Sync MVHR clock to current HA time."""
-        now = datetime.now()
+        now = dt_util.now()
 
         # Register 40040 (address 39): Year (uint16)
         # Register 40041 (address 40): MSB=month, LSB=day

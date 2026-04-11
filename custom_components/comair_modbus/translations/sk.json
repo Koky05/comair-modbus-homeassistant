@@ -33,19 +33,6 @@
       "already_configured": "Toto zariadenie je už nakonfigurované."
     }
   },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Nastavenia ComAir HRUC-Plus",
-        "data": {
-          "max_rpm": "Maximálne otáčky ventilátora (pri 100% rýchlosti)"
-        },
-        "data_description": {
-          "max_rpm": "Nastavte na 0 pre vypnutie senzorov percentuálnej rýchlosti. Spustite jednotku v režime Vyčistiť/100% a zaznamenajte otáčky."
-        }
-      }
-    }
-  },
   "entity": {
     "sensor": {
       "intake_temp": { "name": "Teplota nasávania" },

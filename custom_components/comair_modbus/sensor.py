@@ -341,7 +341,8 @@ class ComairEnergySensor(
             power = self.coordinator.data.get("power")
             if power is not None and self._last_update is not None:
                 elapsed_hours = (now - self._last_update) / 3600.0
-                if elapsed_hours > 0:
+                # Cap at 2x scan interval to prevent spikes after long gaps
+                if 0 < elapsed_hours < (120 / 3600):
                     self._total_energy += (power / 1000.0) * elapsed_hours
 
         self._last_update = now
