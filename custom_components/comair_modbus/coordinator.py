@@ -122,6 +122,9 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 _LOGGER.debug("Failed to read exhaust temp: %s", result)
 
             # Batch 7: User override holding register 40030 (address 29)
+            # Note: HRUC resets this register to 0 after acknowledging
+            # an override.  The register only shows non-zero briefly
+            # or when set from the physical controller/app.
             result = await self.client.read_holding_registers(
                 address=29, count=1, device_id=self.slave_id
             )
