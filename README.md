@@ -290,6 +290,25 @@ The integration provides an **Energy** sensor (`sensor.comair_hruc_plus_energy`)
 
 ---
 
+## Dashboard Card
+
+A ready-to-use `picture-elements` Lovelace card that mimics the physical HRUC-Plus LCD controller display is included at [`docs/lovelace_controller_card.yaml`](docs/lovelace_controller_card.yaml).
+
+**Features:**
+- Transparent background (works with any HA theme)
+- Outdoor/indoor temperature, humidity, heat recovery efficiency
+- Mode-dependent fan icon (auto, speed-1, speed-2, speed-3, boost alert)
+- Supply/extract fan speed percentages
+- Air quality smiley (happy/neutral/sad based on faults/warnings)
+- Power, energy, runtime, filter and service timers
+
+**Installation:**
+1. Copy SVG icons from `docs/icons/` to `/config/www/comair/` on your HA
+2. Copy `docs/icons/lcd_transparent.png` to `/config/www/comair/`
+3. Dashboard → Edit → Add Card → Manual → paste content from `docs/lovelace_controller_card.yaml`
+
+---
+
 ## Modbus Register Map
 
 ![Modbus Register Map](docs/images/modbus_register_map.png)
