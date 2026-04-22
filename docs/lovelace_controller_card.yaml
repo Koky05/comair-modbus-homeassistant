@@ -38,7 +38,7 @@ elements:
   - type: conditional
     conditions:
       - entity: sensor.comair_hruc_plus_3_varovania
-        state_not: "0"
+        state_not: "OK"
     elements:
       - type: icon
         icon: mdi:alert
@@ -220,9 +220,9 @@ elements:
   - type: conditional
     conditions:
       - entity: sensor.comair_hruc_plus_3_poruchy
-        state: "0"
+        state: "OK"
       - entity: sensor.comair_hruc_plus_3_varovania
-        state: "0"
+        state: "OK"
     elements:
       - type: icon
         icon: mdi:emoticon-happy-outline
@@ -236,9 +236,9 @@ elements:
   - type: conditional
     conditions:
       - entity: sensor.comair_hruc_plus_3_poruchy
-        state: "0"
+        state: "OK"
       - entity: sensor.comair_hruc_plus_3_varovania
-        state_not: "0"
+        state_not: "OK"
     elements:
       - type: icon
         icon: mdi:emoticon-neutral-outline
@@ -252,7 +252,7 @@ elements:
   - type: conditional
     conditions:
       - entity: sensor.comair_hruc_plus_3_poruchy
-        state_not: "0"
+        state_not: "OK"
     elements:
       - type: icon
         icon: mdi:emoticon-sad-outline
