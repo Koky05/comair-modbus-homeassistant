@@ -172,6 +172,34 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # Return last known data on transient failures
             return self._last_data
 
+    # Bitmask-to-code-ID mapping from HRUC-Plus manual.
+    # Bit position → code ID (codes are not always sequential).
+    _FAULT_CODES = {0: "F-1", 1: "F-2", 2: "F-3", 3: "F-4", 7: "F-8", 31: "F-32"}
+    _WARNING_CODES = {
+        0: "W-1", 1: "W-2", 2: "W-3", 3: "W-4", 4: "W-5",
+        5: "W-6", 6: "W-7", 7: "W-8", 8: "W-9",
+        9: "W-10", 10: "W-11", 11: "W-12",
+        12: "W-13", 13: "W-14", 14: "W-15", 17: "W-18", 18: "W-19",
+        19: "W-20",
+    }
+    _NOTIFICATION_CODES = {0: "N-1", 1: "N-2", 2: "N-3", 3: "N-4", 4: "N-5"}
+
+    @staticmethod
+    def _decode_bitmask(value: int, code_map: dict[int, str]) -> str:
+        """Decode a bitmask into comma-separated code IDs."""
+        if value == 0:
+            return ""
+        codes = []
+        for bit, code_id in sorted(code_map.items()):
+            if value & (1 << bit):
+                codes.append(code_id)
+        # Include unknown bits
+        known_bits = sum(1 << b for b in code_map)
+        unknown = value & ~known_bits
+        if unknown:
+            codes.append(f"0x{unknown:X}")
+        return ", ".join(codes)
+
     def _parse_status_registers(self, registers: list[int]) -> dict[str, Any]:
         """Parse status registers 30001-30010."""
         data: dict[str, Any] = {}
@@ -180,12 +208,24 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             data["run_time"] = registers[0]  # 30001: Run Time (days)
             data["service_timer"] = registers[1] + 1  # 30002: Service Timer (0-based)
             data["filter_timer"] = registers[2] + 1  # 30003: Filter Timer (0-based)
-            # 30004-30005: Faults (32-bit)
-            data["faults"] = (registers[3] << 16) | registers[4]
-            # 30006-30007: Warnings (32-bit)
-            data["warnings"] = (registers[5] << 16) | registers[6]
-            # 30008-30009: Notifications (32-bit)
-            data["notifications"] = (registers[7] << 16) | registers[8]
+            # 30004-30005: Faults (32-bit bitmask)
+            faults_raw = (registers[3] << 16) | registers[4]
+            data["faults"] = (
+                self._decode_bitmask(faults_raw, self._FAULT_CODES)
+                or "OK"
+            )
+            # 30006-30007: Warnings (32-bit bitmask)
+            warnings_raw = (registers[5] << 16) | registers[6]
+            data["warnings"] = (
+                self._decode_bitmask(warnings_raw, self._WARNING_CODES)
+                or "OK"
+            )
+            # 30008-30009: Notifications (32-bit bitmask)
+            notif_raw = (registers[7] << 16) | registers[8]
+            data["notifications"] = (
+                self._decode_bitmask(notif_raw, self._NOTIFICATION_CODES)
+                or "OK"
+            )
             data["power"] = registers[9]  # 30010: Power (W)
 
         return data
