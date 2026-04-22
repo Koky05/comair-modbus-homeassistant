@@ -1,151 +1,357 @@
 ####################################################################
-# ComAir HRUC-Plus 3 VL — Controller Dashboard Card
-# Mimics the physical HRUC controller LCD display
-#
-# Prerequisites:
-#   - card-mod (HACS frontend)
-#   - mushroom cards (HACS frontend) — optional but recommended
+# ComAir HRUC-Plus 3 — LCD Controller Card (picture-elements)
+# Layout matches physical controller home screen (Beginscherm)
+# Transparent background for FrostGlass Dark theme
 #
 # Installation:
-#   1. Copy this YAML into a Manual Card in your HA dashboard
-#   2. Adjust entity IDs if yours differ
+#   Dashboard → Edit → Add Card → Manual → paste from "type:"
 ####################################################################
 
-type: vertical-stack
-cards:
-  # ─── Header: Mode + Filter/Service status ───
-  - type: horizontal-stack
-    cards:
-      - type: entity
-        entity: select.comair_hruc_plus_3_ventilation_mode
-        name: Režim
-        icon: mdi:fan
-      - type: entity
-        entity: sensor.comair_hruc_plus_3_casovac_filtra
-        name: Filter
-        icon: mdi:air-filter
-      - type: entity
-        entity: sensor.comair_hruc_plus_3_servisny_casovac
-        name: Servis
-        icon: mdi:wrench-clock
+type: picture-elements
+image: /local/comair/lcd_transparent.png
+elements:
 
-  # ─── Main display: Temps + Humidity + Efficiency ───
-  - type: horizontal-stack
-    cards:
-      # Outdoor (Intake)
-      - type: tile
-        entity: sensor.comair_hruc_plus_3_teplota_nasavania
-        name: Vonku
-        icon: mdi:home-import-outline
-        color: blue
-      # Indoor (Extract)
-      - type: tile
-        entity: sensor.comair_hruc_plus_3_teplota_odvodneho_vzduchu
-        name: Vnútri
-        icon: mdi:home-thermometer
-        color: orange
-      # Humidity
-      - type: tile
-        entity: sensor.comair_hruc_plus_3_vlhkost_odvodu
-        name: Vlhkosť
-        icon: mdi:water-percent
-        color: cyan
-      # Heat Recovery
-      - type: tile
-        entity: sensor.comair_hruc_plus_3_ucinnost_rekuperacie
-        name: Rekuperácia
-        icon: mdi:heat-wave
-        color: green
+  # ══════════════════════════════════════════════════════════════
+  # STATUS BAR (top) — clock, date, frost/warning icons
+  # ══════════════════════════════════════════════════════════════
 
-  # ─── Fan speeds + Power ───
-  - type: horizontal-stack
-    cards:
-      - type: tile
-        entity: sensor.comair_hruc_plus_3_rychlost_ventilatora_privodu
-        name: Prívod
-        icon: mdi:fan
-        color: blue
-      - type: tile
-        entity: sensor.comair_hruc_plus_3_rychlost_ventilatora_odvodu
-        name: Odvod
-        icon: mdi:fan
-        color: red
-      - type: tile
-        entity: sensor.comair_hruc_plus_3_supply_fan_rpm
-        name: RPM ←
-        icon: mdi:speedometer
-      - type: tile
-        entity: sensor.comair_hruc_plus_3_extract_fan_rpm
-        name: RPM →
-        icon: mdi:speedometer
+  # Status bar — run time as "uptime" indicator
+  - type: icon
+    icon: mdi:clock-outline
+    style:
+      top: 6%
+      left: 6%
+      color: rgba(255,255,255,0.3)
+      "--mdi-icon-size": 16px
 
-  # ─── All 4 duct temperatures ───
-  - type: glance
-    title: Teploty v potrubí
-    show_name: true
-    show_state: true
-    show_icon: true
-    entities:
-      - entity: sensor.comair_hruc_plus_3_teplota_nasavania
-        name: T1 Nasáv.
-        icon: mdi:arrow-right-bold
-      - entity: sensor.comair_hruc_plus_3_teplota_privodneho_vzduchu
-        name: T2 Prívod
-        icon: mdi:arrow-right-bold-outline
-      - entity: sensor.comair_hruc_plus_3_teplota_odvodneho_vzduchu
-        name: T3 Odvod
-        icon: mdi:arrow-left-bold
-      - entity: sensor.comair_hruc_plus_3_teplota_vyfuku
-        name: T4 Výfuk
-        icon: mdi:arrow-left-bold-outline
+  - type: state-label
+    entity: sensor.comair_hruc_plus_3_doba_prevadzky
+    tap_action:
+      action: more-info
+    style:
+      top: 6%
+      left: 16%
+      font-size: 12px
+      color: rgba(255,255,255,0.4)
+      cursor: pointer
 
-  # ─── Controls: Mode select + Duration slider ───
-  - type: entities
-    title: Ovládanie
-    show_header_toggle: false
-    entities:
-      - entity: climate.comair_hruc_plus_3_ventilation
-        name: Klimatizácia
+  - type: conditional
+    conditions:
+      - entity: sensor.comair_hruc_plus_3_varovania
+        state_not: "0"
+    elements:
+      - type: icon
+        icon: mdi:alert
+        style:
+          top: 6%
+          left: 92%
+          color: rgba(255,180,50,0.8)
+          "--mdi-icon-size": 18px
+
+  # ══════════════════════════════════════════════════════════════
+  # TEMPERATURE ROW — outdoor | INDOOR (big) | humidity
+  # ══════════════════════════════════════════════════════════════
+
+  - type: icon
+    icon: mdi:home-import-outline
+    style:
+      top: 22%
+      left: 12%
+      color: rgba(255,255,255,0.3)
+      "--mdi-icon-size": 18px
+
+  - type: state-label
+    entity: sensor.comair_hruc_plus_3_teplota_nasavania
+    style:
+      top: 35%
+      left: 14%
+      font-size: 22px
+      font-weight: bold
+      color: rgba(255,255,255,0.85)
+
+  - type: state-label
+    entity: sensor.comair_hruc_plus_3_teplota_odvodneho_vzduchu
+    style:
+      top: 30%
+      left: 50%
+      font-size: 48px
+      font-weight: bold
+      color: white
+      text-shadow: 0 0 10px rgba(255,255,255,0.15)
+
+  - type: icon
+    icon: mdi:water-percent
+    style:
+      top: 22%
+      left: 88%
+      color: rgba(255,255,255,0.3)
+      "--mdi-icon-size": 18px
+
+  - type: state-label
+    entity: sensor.comair_hruc_plus_3_vlhkost_odvodu
+    style:
+      top: 35%
+      left: 87%
+      font-size: 22px
+      font-weight: bold
+      color: rgba(255,255,255,0.85)
+
+  # ══════════════════════════════════════════════════════════════
+  # MIDDLE ROW — recovery % | FAN + mode | smiley
+  # ══════════════════════════════════════════════════════════════
+
+  - type: icon
+    icon: mdi:heat-wave
+    style:
+      top: 52%
+      left: 8%
+      color: rgba(255,255,255,0.35)
+      "--mdi-icon-size": 20px
+
+  - type: state-label
+    entity: sensor.comair_hruc_plus_3_ucinnost_rekuperacie
+    style:
+      top: 52%
+      left: 20%
+      font-size: 18px
+      color: rgba(255,255,255,0.7)
+
+  # Fan icon — speed dashes match LCD: 1=Low, 2=Medium, 3=High, 4=Boost
+  - type: conditional
+    conditions:
       - entity: select.comair_hruc_plus_3_ventilation_mode
-        name: Režim vetrania
-      - entity: number.comair_hruc_plus_3_mode_duration
-        name: Trvanie režimu
-
-  # ─── Power + Energy ───
-  - type: horizontal-stack
-    cards:
-      - type: tile
-        entity: sensor.comair_hruc_plus_3_prikon
-        name: Príkon
-        icon: mdi:flash
-        color: yellow
-      - type: tile
-        entity: sensor.comair_hruc_plus_3_energy
-        name: Energia
-        icon: mdi:lightning-bolt
-        color: amber
-
-  # ─── Status: Faults/Warnings ───
-  - type: conditional
-    conditions:
-      - condition: numeric_state
-        entity: sensor.comair_hruc_plus_3_poruchy
-        above: 0
-    card:
-      type: tile
-      entity: sensor.comair_hruc_plus_3_poruchy
-      name: PORUCHY
-      icon: mdi:alert-circle
-      color: red
+        state: "Auto"
+    elements:
+      - type: icon
+        icon: mdi:fan-auto
+        tap_action:
+          action: more-info
+          entity: select.comair_hruc_plus_3_ventilation_mode
+        style:
+          top: 50%
+          left: 50%
+          color: rgba(255,255,255,0.8)
+          "--mdi-icon-size": 58px
+          cursor: pointer
 
   - type: conditional
     conditions:
-      - condition: numeric_state
-        entity: sensor.comair_hruc_plus_3_varovania
-        above: 0
-    card:
-      type: tile
-      entity: sensor.comair_hruc_plus_3_varovania
-      name: VAROVANIA
-      icon: mdi:alert
-      color: orange
+      - entity: select.comair_hruc_plus_3_ventilation_mode
+        state: "Low"
+    elements:
+      - type: icon
+        icon: mdi:fan-speed-1
+        tap_action:
+          action: more-info
+          entity: select.comair_hruc_plus_3_ventilation_mode
+        style:
+          top: 50%
+          left: 50%
+          color: rgba(255,255,255,0.8)
+          "--mdi-icon-size": 58px
+          cursor: pointer
+
+  - type: conditional
+    conditions:
+      - entity: select.comair_hruc_plus_3_ventilation_mode
+        state: "Medium"
+    elements:
+      - type: icon
+        icon: mdi:fan-speed-2
+        tap_action:
+          action: more-info
+          entity: select.comair_hruc_plus_3_ventilation_mode
+        style:
+          top: 50%
+          left: 50%
+          color: rgba(255,255,255,0.8)
+          "--mdi-icon-size": 58px
+          cursor: pointer
+
+  - type: conditional
+    conditions:
+      - entity: select.comair_hruc_plus_3_ventilation_mode
+        state: "High"
+    elements:
+      - type: icon
+        icon: mdi:fan-speed-3
+        tap_action:
+          action: more-info
+          entity: select.comair_hruc_plus_3_ventilation_mode
+        style:
+          top: 50%
+          left: 50%
+          color: rgba(255,255,255,0.8)
+          "--mdi-icon-size": 58px
+          cursor: pointer
+
+  - type: conditional
+    conditions:
+      - entity: select.comair_hruc_plus_3_ventilation_mode
+        state: "Boost"
+    elements:
+      - type: icon
+        icon: mdi:fan-alert
+        tap_action:
+          action: more-info
+          entity: select.comair_hruc_plus_3_ventilation_mode
+        style:
+          top: 50%
+          left: 50%
+          color: rgba(255,200,50,0.9)
+          "--mdi-icon-size": 58px
+          cursor: pointer
+
+  # Mode name (below fan)
+  - type: state-label
+    entity: select.comair_hruc_plus_3_ventilation_mode
+    tap_action:
+      action: more-info
+    style:
+      top: 62%
+      left: 50%
+      font-size: 15px
+      font-weight: bold
+      color: rgba(255,255,255,0.8)
+      cursor: pointer
+
+  # Smiley — only ONE shows based on priority: faults > warnings > happy
+  # Happy: both faults AND warnings are 0
+  - type: conditional
+    conditions:
+      - entity: sensor.comair_hruc_plus_3_poruchy
+        state: "0"
+      - entity: sensor.comair_hruc_plus_3_varovania
+        state: "0"
+    elements:
+      - type: icon
+        icon: mdi:emoticon-happy-outline
+        style:
+          top: 52%
+          left: 88%
+          color: rgba(255,255,255,0.7)
+          "--mdi-icon-size": 36px
+
+  # Neutral: warnings > 0 but faults = 0
+  - type: conditional
+    conditions:
+      - entity: sensor.comair_hruc_plus_3_poruchy
+        state: "0"
+      - entity: sensor.comair_hruc_plus_3_varovania
+        state_not: "0"
+    elements:
+      - type: icon
+        icon: mdi:emoticon-neutral-outline
+        style:
+          top: 52%
+          left: 88%
+          color: rgba(255,200,50,0.8)
+          "--mdi-icon-size": 36px
+
+  # Sad: faults > 0
+  - type: conditional
+    conditions:
+      - entity: sensor.comair_hruc_plus_3_poruchy
+        state_not: "0"
+    elements:
+      - type: icon
+        icon: mdi:emoticon-sad-outline
+        style:
+          top: 52%
+          left: 88%
+          color: rgba(255,80,80,0.8)
+          "--mdi-icon-size": 36px
+
+  # ══════════════════════════════════════════════════════════════
+  # FAN SPEED ROW — supply % | fan | extract %
+  # ══════════════════════════════════════════════════════════════
+
+  - type: icon
+    icon: mdi:arrow-left
+    style:
+      top: 71%
+      left: 6%
+      color: rgba(255,255,255,0.25)
+      "--mdi-icon-size": 16px
+
+  - type: state-label
+    entity: sensor.comair_hruc_plus_3_rychlost_ventilatora_privodu
+    style:
+      top: 71%
+      left: 18%
+      font-size: 22px
+      font-weight: bold
+      color: rgba(255,255,255,0.85)
+
+  - type: state-label
+    entity: sensor.comair_hruc_plus_3_rychlost_ventilatora_odvodu
+    style:
+      top: 71%
+      left: 82%
+      font-size: 22px
+      font-weight: bold
+      color: rgba(255,255,255,0.85)
+
+  - type: icon
+    icon: mdi:arrow-right
+    style:
+      top: 71%
+      left: 94%
+      color: rgba(255,255,255,0.25)
+      "--mdi-icon-size": 16px
+
+  # ══════════════════════════════════════════════════════════════
+  # BOTTOM BAR — power | energy | runtime | filter/service
+  # ══════════════════════════════════════════════════════════════
+
+  - type: state-label
+    entity: sensor.comair_hruc_plus_3_prikon
+    prefix: "⚡ "
+    tap_action:
+      action: more-info
+    style:
+      top: 90%
+      left: 10%
+      font-size: 12px
+      color: rgba(255,255,255,0.4)
+      cursor: pointer
+
+  - type: state-label
+    entity: sensor.comair_hruc_plus_3_energy
+    tap_action:
+      action: more-info
+    style:
+      top: 90%
+      left: 32%
+      font-size: 12px
+      color: rgba(255,255,255,0.4)
+      cursor: pointer
+
+  - type: state-label
+    entity: sensor.comair_hruc_plus_3_doba_prevadzky
+    tap_action:
+      action: more-info
+    style:
+      top: 90%
+      left: 52%
+      font-size: 12px
+      color: rgba(255,255,255,0.4)
+      cursor: pointer
+
+  - type: state-label
+    entity: sensor.comair_hruc_plus_3_casovac_filtra
+    prefix: "F: "
+    style:
+      top: 86%
+      left: 90%
+      font-size: 12px
+      color: rgba(255,255,255,0.4)
+
+  - type: state-label
+    entity: sensor.comair_hruc_plus_3_servisny_casovac
+    prefix: "S: "
+    style:
+      top: 94%
+      left: 90%
+      font-size: 12px
+      color: rgba(255,255,255,0.4)
