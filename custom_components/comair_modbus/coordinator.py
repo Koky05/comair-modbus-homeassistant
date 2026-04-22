@@ -135,6 +135,16 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             else:
                 _LOGGER.debug("Failed to read user override: %s", result)
 
+            # BMS keep-alive: write 0 to register 40020 (address 19) each
+            # poll cycle.  This prevents the HRUC W-15 "BMS offline" warning
+            # that appears after a write to the user-override register.
+            try:
+                await self.client.write_register(
+                    address=19, value=0, device_id=self.slave_id
+                )
+            except Exception:
+                _LOGGER.debug("BMS keep-alive write failed (non-critical)")
+
             # Success - reset failure count and merge data
             self._failure_count = 0
             self._last_data.update(data)
@@ -177,13 +187,15 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         return data
 
-    # Fan curve constants (derived from measured data points):
-    # 8% → 818 RPM, 30% → 1150 RPM, 100% → 3400 RPM
-    # Curve: RPM = BASE_RPM + (MAX_RPM - BASE_RPM) * (pct/100)^1.5
-    # Inverse: pct = ((RPM - BASE_RPM) / (MAX_RPM - BASE_RPM))^(1/1.5) * 100
-    _FAN_BASE_RPM = 750
-    _FAN_MAX_RPM = 3400
-    _FAN_EXPONENT = 1.5
+    # Fan curve: measured RPM→% data points (average of supply/extract)
+    # Low=8%→817, Normal=15%→1021, High=30%→1489, Boost=100%→3347
+    _FAN_CURVE: list[tuple[int, float]] = [
+        (0, 0.0),
+        (817, 8.0),
+        (1021, 15.0),
+        (1489, 30.0),
+        (3347, 100.0),
+    ]
 
     def _parse_fan_registers(self, registers: list[int]) -> dict[str, Any]:
         """Parse fan RPM registers 30014-30017.
@@ -207,17 +219,23 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return data
 
     def _rpm_to_pct(self, rpm: int) -> float:
-        """Convert RPM to fan speed percentage using non-linear fan curve.
+        """Convert RPM to fan speed percentage using linear interpolation.
 
-        Fan curve: RPM = base + (max - base) * (pct/100)^1.5
-        Inverse:   pct = ((RPM - base) / (max - base))^(1/1.5) * 100
+        Uses measured data points: 8%→817, 15%→1021, 30%→1489, 100%→3347.
         """
-        if rpm <= self._FAN_BASE_RPM:
-            return 0.0
-        if rpm >= self._FAN_MAX_RPM:
-            return 100.0
-        ratio = (rpm - self._FAN_BASE_RPM) / (self._FAN_MAX_RPM - self._FAN_BASE_RPM)
-        return round(ratio ** (1.0 / self._FAN_EXPONENT) * 100, 1)
+        curve = self._FAN_CURVE
+        if rpm <= curve[0][0]:
+            return curve[0][1]
+        if rpm >= curve[-1][0]:
+            return curve[-1][1]
+        # Find the two surrounding points and interpolate
+        for i in range(len(curve) - 1):
+            rpm_lo, pct_lo = curve[i]
+            rpm_hi, pct_hi = curve[i + 1]
+            if rpm_lo <= rpm <= rpm_hi:
+                ratio = (rpm - rpm_lo) / (rpm_hi - rpm_lo)
+                return round(pct_lo + ratio * (pct_hi - pct_lo), 1)
+        return 0.0
 
     def _parse_binary_registers(self, registers: list[int]) -> dict[str, Any]:
         """Parse binary status registers 30020-30024 (relay output states)."""
@@ -300,8 +318,15 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     duration,
                     value,
                 )
-                # Trigger refresh to update entities
-                await self.async_request_refresh()
+                # Immediately update coordinator data so entities reflect
+                # the change without waiting for the next poll cycle.
+                self._last_data["user_override"] = value
+                self._last_data["current_mode"] = mode
+                self._last_data["mode_duration"] = duration
+                self._last_data["current_mode_name"] = MODE_NAMES.get(
+                    mode, "Unknown"
+                )
+                self.async_set_updated_data(self._last_data.copy())
                 return True
             else:
                 _LOGGER.error("Failed to write user override: %s", result)

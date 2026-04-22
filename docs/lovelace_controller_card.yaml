@@ -1,0 +1,151 @@
+####################################################################
+# ComAir HRUC-Plus 3 VL — Controller Dashboard Card
+# Mimics the physical HRUC controller LCD display
+#
+# Prerequisites:
+#   - card-mod (HACS frontend)
+#   - mushroom cards (HACS frontend) — optional but recommended
+#
+# Installation:
+#   1. Copy this YAML into a Manual Card in your HA dashboard
+#   2. Adjust entity IDs if yours differ
+####################################################################
+
+type: vertical-stack
+cards:
+  # ─── Header: Mode + Filter/Service status ───
+  - type: horizontal-stack
+    cards:
+      - type: entity
+        entity: select.comair_hruc_plus_3_ventilation_mode
+        name: Režim
+        icon: mdi:fan
+      - type: entity
+        entity: sensor.comair_hruc_plus_3_casovac_filtra
+        name: Filter
+        icon: mdi:air-filter
+      - type: entity
+        entity: sensor.comair_hruc_plus_3_servisny_casovac
+        name: Servis
+        icon: mdi:wrench-clock
+
+  # ─── Main display: Temps + Humidity + Efficiency ───
+  - type: horizontal-stack
+    cards:
+      # Outdoor (Intake)
+      - type: tile
+        entity: sensor.comair_hruc_plus_3_teplota_nasavania
+        name: Vonku
+        icon: mdi:home-import-outline
+        color: blue
+      # Indoor (Extract)
+      - type: tile
+        entity: sensor.comair_hruc_plus_3_teplota_odvodneho_vzduchu
+        name: Vnútri
+        icon: mdi:home-thermometer
+        color: orange
+      # Humidity
+      - type: tile
+        entity: sensor.comair_hruc_plus_3_vlhkost_odvodu
+        name: Vlhkosť
+        icon: mdi:water-percent
+        color: cyan
+      # Heat Recovery
+      - type: tile
+        entity: sensor.comair_hruc_plus_3_ucinnost_rekuperacie
+        name: Rekuperácia
+        icon: mdi:heat-wave
+        color: green
+
+  # ─── Fan speeds + Power ───
+  - type: horizontal-stack
+    cards:
+      - type: tile
+        entity: sensor.comair_hruc_plus_3_rychlost_ventilatora_privodu
+        name: Prívod
+        icon: mdi:fan
+        color: blue
+      - type: tile
+        entity: sensor.comair_hruc_plus_3_rychlost_ventilatora_odvodu
+        name: Odvod
+        icon: mdi:fan
+        color: red
+      - type: tile
+        entity: sensor.comair_hruc_plus_3_supply_fan_rpm
+        name: RPM ←
+        icon: mdi:speedometer
+      - type: tile
+        entity: sensor.comair_hruc_plus_3_extract_fan_rpm
+        name: RPM →
+        icon: mdi:speedometer
+
+  # ─── All 4 duct temperatures ───
+  - type: glance
+    title: Teploty v potrubí
+    show_name: true
+    show_state: true
+    show_icon: true
+    entities:
+      - entity: sensor.comair_hruc_plus_3_teplota_nasavania
+        name: T1 Nasáv.
+        icon: mdi:arrow-right-bold
+      - entity: sensor.comair_hruc_plus_3_teplota_privodneho_vzduchu
+        name: T2 Prívod
+        icon: mdi:arrow-right-bold-outline
+      - entity: sensor.comair_hruc_plus_3_teplota_odvodneho_vzduchu
+        name: T3 Odvod
+        icon: mdi:arrow-left-bold
+      - entity: sensor.comair_hruc_plus_3_teplota_vyfuku
+        name: T4 Výfuk
+        icon: mdi:arrow-left-bold-outline
+
+  # ─── Controls: Mode select + Duration slider ───
+  - type: entities
+    title: Ovládanie
+    show_header_toggle: false
+    entities:
+      - entity: climate.comair_hruc_plus_3_ventilation
+        name: Klimatizácia
+      - entity: select.comair_hruc_plus_3_ventilation_mode
+        name: Režim vetrania
+      - entity: number.comair_hruc_plus_3_mode_duration
+        name: Trvanie režimu
+
+  # ─── Power + Energy ───
+  - type: horizontal-stack
+    cards:
+      - type: tile
+        entity: sensor.comair_hruc_plus_3_prikon
+        name: Príkon
+        icon: mdi:flash
+        color: yellow
+      - type: tile
+        entity: sensor.comair_hruc_plus_3_energy
+        name: Energia
+        icon: mdi:lightning-bolt
+        color: amber
+
+  # ─── Status: Faults/Warnings ───
+  - type: conditional
+    conditions:
+      - condition: numeric_state
+        entity: sensor.comair_hruc_plus_3_poruchy
+        above: 0
+    card:
+      type: tile
+      entity: sensor.comair_hruc_plus_3_poruchy
+      name: PORUCHY
+      icon: mdi:alert-circle
+      color: red
+
+  - type: conditional
+    conditions:
+      - condition: numeric_state
+        entity: sensor.comair_hruc_plus_3_varovania
+        above: 0
+    card:
+      type: tile
+      entity: sensor.comair_hruc_plus_3_varovania
+      name: VAROVANIA
+      icon: mdi:alert
+      color: orange
