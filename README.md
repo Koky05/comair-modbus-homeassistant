@@ -272,13 +272,15 @@ The integration will test the connection and create all entities.
 
 Control ventilation via the **select** entity or **climate** presets:
 
-| Mode | Fan Speed | Description |
-|------|-----------|-------------|
+| Mode | Default Fan Speed | Description |
+|------|-------------------|-------------|
 | Auto | Automatic | Automatic control based on sensors |
-| Low | 8% | Low fan speed |
-| Medium | 15% | Medium fan speed (Normal) |
-| High | 30% | High fan speed |
-| Boost | 100% | Maximum ventilation (Purge) |
+| Low | 20% | Low fan speed (PR1) |
+| Medium | 30% | Medium fan speed (PR2, Normal) |
+| High | 50% | High fan speed (PR3) |
+| Boost | 100% | Maximum ventilation (PR4, Purge) |
+
+Fan speeds are configurable per mode via the Vent-Axia Connect app.
 
 ---
 
