@@ -54,7 +54,7 @@ You need a **WiFi or Ethernet RS485 gateway** to bridge the unit's RS485 bus to 
 
 The **Elfin EW11A** is recommended — it can be powered directly from the BMS connector (5V or 24V), requires no external power supply, and fits neatly inside the ventilation unit.
 
-![EW11A Installed](docs/images/ew11a_installed.png)
+<img src="docs/images/ew11a_installed.png" width="400">
 
 ### 3. RJ12 Cable (6P6C)
 
@@ -105,7 +105,7 @@ Pin 4 (MOD B)  ───────────── B  (Data-)
 Pin 5 (GND)    ───────────── GND
 ```
 
-![EW11A Wiring](docs/images/ew11a_wiring.png)
+<img src="docs/images/ew11a_wiring.png" width="300">
 
 ### Power Pin Selection
 
@@ -154,7 +154,7 @@ Configure your gateway with these settings (confirmed by Vent-Axia UK):
 
 The Modbus settings can be verified in the Vent-Axia Connect app under Advanced Settings → Modbus:
 
-![Vent-Axia BMS Settings](docs/images/ventaxia_bms_settings.jpeg)
+<img src="docs/images/ventaxia_bms_settings.jpeg" width="250">
 
 ---
 
