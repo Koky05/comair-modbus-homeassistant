@@ -1,21 +1,6 @@
-####################################################################
-# ComAir HRUC-Plus 3 — LCD Controller Card (picture-elements)
-# Layout matches physical controller home screen (Beginscherm)
-# Transparent background for FrostGlass Dark theme
-#
-# Installation:
-#   Dashboard → Edit → Add Card → Manual → paste from "type:"
-####################################################################
-
 type: picture-elements
 image: /local/comair/lcd_transparent.png
 elements:
-
-  # ══════════════════════════════════════════════════════════════
-  # STATUS BAR (top) — clock, date, frost/warning icons
-  # ══════════════════════════════════════════════════════════════
-
-  # Status bar — run time as "uptime" indicator
   - type: icon
     icon: mdi:clock-outline
     style:
@@ -23,9 +8,8 @@ elements:
       left: 6%
       color: rgba(255,255,255,0.3)
       "--mdi-icon-size": 16px
-
   - type: state-label
-    entity: sensor.comair_hruc_plus_3_doba_prevadzky
+    entity: sensor.time
     tap_action:
       action: more-info
     style:
@@ -34,11 +18,26 @@ elements:
       font-size: 12px
       color: rgba(255,255,255,0.4)
       cursor: pointer
-
+  - type: state-label
+    entity: sensor.date
+    tap_action:
+      action: more-info
+    style:
+      top: 6%
+      left: 28%
+      font-size: 12px
+      color: rgba(255,255,255,0.4)
+      cursor: pointer
   - type: conditional
     conditions:
       - entity: sensor.comair_hruc_plus_3_varovania
         state_not: "OK"
+      - entity: sensor.comair_hruc_plus_3_varovania
+        state_not: "0"
+      - entity: sensor.comair_hruc_plus_3_varovania
+        state_not: "unknown"
+      - entity: sensor.comair_hruc_plus_3_varovania
+        state_not: "unavailable"
     elements:
       - type: icon
         icon: mdi:alert
@@ -47,11 +46,6 @@ elements:
           left: 92%
           color: rgba(255,180,50,0.8)
           "--mdi-icon-size": 18px
-
-  # ══════════════════════════════════════════════════════════════
-  # TEMPERATURE ROW — outdoor | INDOOR (big) | humidity
-  # ══════════════════════════════════════════════════════════════
-
   - type: icon
     icon: mdi:home-import-outline
     style:
@@ -59,7 +53,6 @@ elements:
       left: 12%
       color: rgba(255,255,255,0.3)
       "--mdi-icon-size": 18px
-
   - type: state-label
     entity: sensor.comair_hruc_plus_3_teplota_nasavania
     style:
@@ -68,7 +61,6 @@ elements:
       font-size: 22px
       font-weight: bold
       color: rgba(255,255,255,0.85)
-
   - type: state-label
     entity: sensor.comair_hruc_plus_3_teplota_odvodneho_vzduchu
     style:
@@ -78,7 +70,6 @@ elements:
       font-weight: bold
       color: white
       text-shadow: 0 0 10px rgba(255,255,255,0.15)
-
   - type: icon
     icon: mdi:water-percent
     style:
@@ -86,7 +77,6 @@ elements:
       left: 88%
       color: rgba(255,255,255,0.3)
       "--mdi-icon-size": 18px
-
   - type: state-label
     entity: sensor.comair_hruc_plus_3_vlhkost_odvodu
     style:
@@ -95,11 +85,6 @@ elements:
       font-size: 22px
       font-weight: bold
       color: rgba(255,255,255,0.85)
-
-  # ══════════════════════════════════════════════════════════════
-  # MIDDLE ROW — recovery % | FAN + mode | smiley
-  # ══════════════════════════════════════════════════════════════
-
   - type: icon
     icon: mdi:heat-wave
     style:
@@ -107,7 +92,6 @@ elements:
       left: 8%
       color: rgba(255,255,255,0.35)
       "--mdi-icon-size": 20px
-
   - type: state-label
     entity: sensor.comair_hruc_plus_3_ucinnost_rekuperacie
     style:
@@ -115,12 +99,10 @@ elements:
       left: 20%
       font-size: 18px
       color: rgba(255,255,255,0.7)
-
-  # Fan icon — speed dashes match LCD: 1=Low, 2=Medium, 3=High, 4=Boost
   - type: conditional
     conditions:
       - entity: select.comair_hruc_plus_3_ventilation_mode
-        state: "Auto"
+        state: Auto
     elements:
       - type: icon
         icon: mdi:fan-auto
@@ -133,11 +115,10 @@ elements:
           color: rgba(255,255,255,0.8)
           "--mdi-icon-size": 58px
           cursor: pointer
-
   - type: conditional
     conditions:
       - entity: select.comair_hruc_plus_3_ventilation_mode
-        state: "Low"
+        state: Low
     elements:
       - type: icon
         icon: mdi:fan-speed-1
@@ -150,11 +131,10 @@ elements:
           color: rgba(255,255,255,0.8)
           "--mdi-icon-size": 58px
           cursor: pointer
-
   - type: conditional
     conditions:
       - entity: select.comair_hruc_plus_3_ventilation_mode
-        state: "Medium"
+        state: Medium
     elements:
       - type: icon
         icon: mdi:fan-speed-2
@@ -167,11 +147,10 @@ elements:
           color: rgba(255,255,255,0.8)
           "--mdi-icon-size": 58px
           cursor: pointer
-
   - type: conditional
     conditions:
       - entity: select.comair_hruc_plus_3_ventilation_mode
-        state: "High"
+        state: High
     elements:
       - type: icon
         icon: mdi:fan-speed-3
@@ -184,11 +163,10 @@ elements:
           color: rgba(255,255,255,0.8)
           "--mdi-icon-size": 58px
           cursor: pointer
-
   - type: conditional
     conditions:
       - entity: select.comair_hruc_plus_3_ventilation_mode
-        state: "Boost"
+        state: Boost
     elements:
       - type: icon
         icon: mdi:fan-alert
@@ -201,8 +179,6 @@ elements:
           color: rgba(255,200,50,0.9)
           "--mdi-icon-size": 58px
           cursor: pointer
-
-  # Mode name (below fan)
   - type: state-label
     entity: select.comair_hruc_plus_3_ventilation_mode
     tap_action:
@@ -215,56 +191,55 @@ elements:
       color: rgba(255,255,255,0.8)
       cursor: pointer
 
-  # Smiley — only ONE shows based on priority: faults > warnings > happy
-  # Happy: both faults AND warnings are 0
-  - type: conditional
-    conditions:
-      - entity: sensor.comair_hruc_plus_3_poruchy
-        state: "OK"
-      - entity: sensor.comair_hruc_plus_3_varovania
-        state: "OK"
-    elements:
-      - type: icon
-        icon: mdi:emoticon-happy-outline
-        style:
-          top: 52%
-          left: 88%
-          color: rgba(255,255,255,0.7)
-          "--mdi-icon-size": 36px
+  # Smiley — happy is always shown as base layer.
+  # Neutral/sad overlay on top ONLY when real codes are present.
+  - type: icon
+    icon: mdi:emoticon-happy-outline
+    style:
+      top: 52%
+      left: 88%
+      color: rgba(255,255,255,0.7)
+      "--mdi-icon-size": 36px
 
-  # Neutral: warnings > 0 but faults = 0
+  # Overlay neutral when warnings have a real code (not OK/0/unknown/unavailable)
   - type: conditional
     conditions:
-      - entity: sensor.comair_hruc_plus_3_poruchy
-        state: "OK"
       - entity: sensor.comair_hruc_plus_3_varovania
         state_not: "OK"
+      - entity: sensor.comair_hruc_plus_3_varovania
+        state_not: "0"
+      - entity: sensor.comair_hruc_plus_3_varovania
+        state_not: "unknown"
+      - entity: sensor.comair_hruc_plus_3_varovania
+        state_not: "unavailable"
     elements:
       - type: icon
         icon: mdi:emoticon-neutral-outline
         style:
           top: 52%
           left: 88%
-          color: rgba(255,200,50,0.8)
+          color: rgba(255,200,50,0.9)
           "--mdi-icon-size": 36px
 
-  # Sad: faults > 0
+  # Overlay sad when faults have a real code (not OK/0/unknown/unavailable)
   - type: conditional
     conditions:
       - entity: sensor.comair_hruc_plus_3_poruchy
         state_not: "OK"
+      - entity: sensor.comair_hruc_plus_3_poruchy
+        state_not: "0"
+      - entity: sensor.comair_hruc_plus_3_poruchy
+        state_not: "unknown"
+      - entity: sensor.comair_hruc_plus_3_poruchy
+        state_not: "unavailable"
     elements:
       - type: icon
         icon: mdi:emoticon-sad-outline
         style:
           top: 52%
           left: 88%
-          color: rgba(255,80,80,0.8)
+          color: rgba(255,80,80,0.9)
           "--mdi-icon-size": 36px
-
-  # ══════════════════════════════════════════════════════════════
-  # FAN SPEED ROW — supply % | fan | extract %
-  # ══════════════════════════════════════════════════════════════
 
   - type: icon
     icon: mdi:arrow-left
@@ -273,7 +248,6 @@ elements:
       left: 6%
       color: rgba(255,255,255,0.25)
       "--mdi-icon-size": 16px
-
   - type: state-label
     entity: sensor.comair_hruc_plus_3_rychlost_ventilatora_privodu
     style:
@@ -282,7 +256,6 @@ elements:
       font-size: 22px
       font-weight: bold
       color: rgba(255,255,255,0.85)
-
   - type: state-label
     entity: sensor.comair_hruc_plus_3_rychlost_ventilatora_odvodu
     style:
@@ -291,7 +264,6 @@ elements:
       font-size: 22px
       font-weight: bold
       color: rgba(255,255,255,0.85)
-
   - type: icon
     icon: mdi:arrow-right
     style:
@@ -299,11 +271,6 @@ elements:
       left: 94%
       color: rgba(255,255,255,0.25)
       "--mdi-icon-size": 16px
-
-  # ══════════════════════════════════════════════════════════════
-  # BOTTOM BAR — power | energy | runtime | filter/service
-  # ══════════════════════════════════════════════════════════════
-
   - type: state-label
     entity: sensor.comair_hruc_plus_3_prikon
     prefix: "⚡ "
@@ -315,7 +282,6 @@ elements:
       font-size: 12px
       color: rgba(255,255,255,0.4)
       cursor: pointer
-
   - type: state-label
     entity: sensor.comair_hruc_plus_3_energy
     tap_action:
@@ -326,7 +292,6 @@ elements:
       font-size: 12px
       color: rgba(255,255,255,0.4)
       cursor: pointer
-
   - type: state-label
     entity: sensor.comair_hruc_plus_3_doba_prevadzky
     tap_action:
@@ -337,21 +302,19 @@ elements:
       font-size: 12px
       color: rgba(255,255,255,0.4)
       cursor: pointer
-
   - type: state-label
     entity: sensor.comair_hruc_plus_3_casovac_filtra
-    prefix: "F: "
+    prefix: "Filter: "
     style:
       top: 86%
-      left: 90%
+      left: 88%
       font-size: 12px
       color: rgba(255,255,255,0.4)
-
   - type: state-label
     entity: sensor.comair_hruc_plus_3_servisny_casovac
-    prefix: "S: "
+    prefix: "Servis: "
     style:
       top: 94%
-      left: 90%
+      left: 87%
       font-size: 12px
       color: rgba(255,255,255,0.4)
