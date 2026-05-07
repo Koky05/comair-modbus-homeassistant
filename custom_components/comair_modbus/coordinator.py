@@ -72,9 +72,9 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             else:
                 _LOGGER.debug("Failed to read fan RPM registers: %s", result)
 
-            # Batch 3: Binary status 30020-30024 (addresses 19-23)
+            # Batch 3: Binary status 30020-30025 (addresses 19-24)
             result = await self.client.read_input_registers(
-                address=19, count=5, device_id=self.slave_id
+                address=19, count=6, device_id=self.slave_id
             )
             if not result.isError():
                 data.update(self._parse_binary_registers(result.registers))
@@ -147,6 +147,9 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 )
             except Exception:
                 _LOGGER.debug("BMS keep-alive write failed (non-critical)")
+
+            # Detect summer bypass from temperature relationships
+            data["bypass_active"] = self._detect_bypass(data)
 
             # Success - reset failure count and merge data
             self._failure_count = 0
@@ -281,7 +284,7 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return 0.0
 
     def _parse_binary_registers(self, registers: list[int]) -> dict[str, Any]:
-        """Parse binary status registers 30020-30024 (relay output states)."""
+        """Parse binary status registers 30020-30025 (relay output states)."""
         data: dict[str, Any] = {}
 
         if len(registers) >= 5:
@@ -290,8 +293,38 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             data["preheater_enable"] = self._bool_or_none(registers[2])  # 30022
             data["controlled_cooling"] = self._bool_or_none(registers[3])  # 30023
             data["controlled_heating"] = self._bool_or_none(registers[4])  # 30024
+        if len(registers) >= 6:
+            data["bypass_output"] = self._bool_or_none(registers[5])  # 30025
 
         return data
+
+    @staticmethod
+    def _detect_bypass(data: dict[str, Any]) -> bool | None:
+        """Detect summer bypass (SBP) from temperature relationships.
+
+        When bypass is open, supply air bypasses the heat exchanger:
+        - supply_temp tracks intake_temp (within ~2 C)
+        - exhaust_temp tracks extract_temp (within ~2 C)
+        """
+        intake = data.get("intake_temp")
+        supply = data.get("supply_temp")
+        extract = data.get("extract_temp")
+        exhaust = data.get("exhaust_temp")
+
+        if any(v is None for v in [intake, supply, extract]):
+            return None
+
+        temp_range = abs(extract - intake)
+        if temp_range < 3.0:
+            return None
+
+        supply_near_intake = abs(supply - intake) <= 2.0
+
+        if exhaust is not None:
+            exhaust_near_extract = abs(exhaust - extract) <= 2.0
+            return supply_near_intake and exhaust_near_extract
+
+        return supply_near_intake
 
     def _scale_temp(self, value: int) -> float | None:
         """Scale temperature value (stored as int16 * 10)."""

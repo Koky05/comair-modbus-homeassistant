@@ -36,7 +36,12 @@ class ComairSensorEntityDescription(SensorEntityDescription):
 
 
 def _calc_heat_recovery(data: dict) -> float | None:
-    """Calculate heat recovery efficiency: (supply - intake) / (extract - intake) * 100."""
+    """Calculate heat recovery efficiency: (supply - intake) / (extract - intake) * 100.
+
+    Returns None when summer bypass is active (heat exchanger bypassed).
+    """
+    if data.get("bypass_active"):
+        return None
     intake = data.get("intake_temp")
     supply = data.get("supply_temp")
     extract = data.get("extract_temp")
