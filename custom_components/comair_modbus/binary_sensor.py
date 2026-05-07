@@ -60,6 +60,13 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[ComairBinarySensorEntityDescription, ...] = (
         icon="mdi:fire",
         value_fn=lambda data: data.get("controlled_heating"),
     ),
+    ComairBinarySensorEntityDescription(
+        key="bypass_active",
+        translation_key="bypass_active",
+        name="Summer Bypass",
+        icon="mdi:valve-open",
+        value_fn=lambda data: data.get("bypass_active"),
+    ),
 )
 
 

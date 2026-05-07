@@ -85,6 +85,7 @@ elements:
       font-size: 22px
       font-weight: bold
       color: rgba(255,255,255,0.85)
+  # Heat recovery efficiency (always shown)
   - type: icon
     icon: mdi:heat-wave
     style:
@@ -99,6 +100,23 @@ elements:
       left: 20%
       font-size: 18px
       color: rgba(255,255,255,0.7)
+  # Summer bypass indicator — shown only when bypass is active
+  - type: conditional
+    conditions:
+      - entity: binary_sensor.comair_hruc_plus_3_letny_obtok
+        state: "on"
+    elements:
+      - type: icon
+        icon: mdi:valve-open
+        tap_action:
+          action: more-info
+          entity: binary_sensor.comair_hruc_plus_3_letny_obtok
+        style:
+          top: 52%
+          left: 32%
+          color: rgba(100,200,255,0.8)
+          "--mdi-icon-size": 20px
+          cursor: pointer
   - type: conditional
     conditions:
       - entity: select.comair_hruc_plus_3_ventilation_mode
