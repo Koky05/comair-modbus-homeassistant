@@ -163,6 +163,13 @@ This integration speaks **Modbus RTU over TCP**: Home Assistant builds the compl
 
 The values above are read from a working EW11A, not from a datasheet.
 
+### EW11A Serial Port Settings
+
+This is a correctly configured EW11A — note **Protocol Settings → Protocol = `None`**, which
+is the setting that makes the gateway a transparent bridge:
+
+![EW11A Serial Port Settings](docs/images/ew11a_serial_settings.png)
+
 ### EW11A Configuration Screenshots
 
 **Protocol Settings:**
