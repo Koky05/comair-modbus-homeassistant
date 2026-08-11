@@ -2,7 +2,7 @@
 ## Complete Wiring Instructions for Modbus RS485 Connection
 
 **Date Created:** January 20, 2026
-**Source:** Official pinout from Vent-Axia UK (via Vent-Axia UK technical support)
+**Source:** Official pinout provided by Vent-Axia UK technical support
 **Pinout Diagram:** `BMS_PIN_mapping.png`
 
 ---
@@ -156,24 +156,38 @@ Use 4 individual wires with RJ12 plug on one end.
 ### Access Web Interface
 ```
 URL: http://<gateway_ip>
-Login: <user>
-Password: REMOVED
+Login / password: as configured on your own device
+                  (Elfin factory default is admin / admin)
 ```
 
 ### Required Settings
 
 | Setting | Value | Location |
 |---------|-------|----------|
-| **Work Mode** | TCP Server | Network Settings |
-| **Port** | 502 | Network Settings |
-| **Protocol** | RTU over TCP | Serial Settings |
+| **Protocol** | **None** (transparent) | Serial Settings |
 | **Baud Rate** | 115200 | Serial Settings |
 | **Data Bits** | 8 | Serial Settings |
 | **Parity** | None | Serial Settings |
 | **Stop Bits** | 1 | Serial Settings |
+| **Flow Control** | Disable | Serial Settings |
 | **Duplex** | Half-duplex | Serial Settings |
-| **Gap Time** | 10ms | Serial Settings |
-| **Modbus** | Enabled | Protocol Settings (optional) |
+| **Buffer Size** | 512 | Serial Settings |
+| **Gap Time** | 50 | Serial Settings |
+| **Frame Length** | 256 | Serial Settings |
+| **Frame Time** | 100 | Serial Settings |
+| **Work Mode** | TCP Server | Communication Settings |
+| **Local Port** | 502 | Communication Settings |
+| **Route** | Uart | Communication Settings |
+| **Security** | None | Communication Settings |
+
+> **The serial Protocol must be `None`, never `Modbus`.**
+> Home Assistant sends Modbus **RTU over TCP** — it builds the complete RTU frame
+> including the CRC, and the gateway only has to forward the bytes untouched. With
+> Protocol = `Modbus` the EW11A instead expects MBAP-framed Modbus TCP from the
+> network and silently discards the RTU frames, which produces
+> `No response received after 3 retries` even with perfect wiring.
+
+These values are read from a working EW11A installation.
 
 ### Verification Checklist
 - [ ] Power LED on (indicates 5V power working)
@@ -215,43 +229,34 @@ ping <gateway_ip>
 ```
 
 ### Step 2: Basic Modbus Test
+Needs only Python 3 — no `pymodbus`, no Home Assistant:
 ```bash
-cd /Users/peter.koval/Projects/comair_apk
-python3 test_modbus_connection.py
+python3 tools/gateway_test.py <gateway_ip>
 ```
 
 ### Step 3: Read Test Register
 ```python
 from pymodbus.client import ModbusTcpClient
+from pymodbus.framer import FramerType
 
-client = ModbusTcpClient('<gateway_ip>', port=502)
+# framer=RTU is required: this is Modbus RTU over TCP, not Modbus TCP
+client = ModbusTcpClient('<gateway_ip>', port=502, framer=FramerType.RTU)
 client.connect()
 
-# Read temperature register (slave ID 2)
-result = client.read_input_registers(address=30100, count=1, slave=2)
+# Intake temperature: documented as register 30100, so input register offset 99
+result = client.read_input_registers(address=99, count=1, device_id=2)
 print(f"Temperature: {result.registers[0] / 10}°C")
 
 client.close()
 ```
 
-### Step 4: Home Assistant Integration
-Add to `configuration.yaml`:
-```yaml
-modbus:
-  - name: comair_hruc
-    type: tcp
-    host: <gateway_ip>
-    port: 502
+The register numbers in the Vent-Axia BMS map are 3xxxx-style references — subtract
+30001 to get the input register offset used on the wire (30100 → 99).
 
-    sensors:
-      - name: "HRUC Intake Temperature"
-        address: 30100
-        slave: 2
-        data_type: int16
-        scale: 0.1
-        unit_of_measurement: "°C"
-        device_class: temperature
-```
+### Step 4: Home Assistant Integration
+Install the integration and add it via **Settings → Devices & Services → Add
+Integration → ComAir HRUC-Plus Modbus**, entering the gateway IP, port 502 and
+device ID 2. No YAML is needed — see the [README](README.md) for installation.
 
 ---
 
@@ -269,11 +274,21 @@ modbus:
 - Ping EW11A from computer
 
 ### Modbus Timeout Errors
-- Verify slave ID is 2
-- Check A/B wiring (not reversed)
-- Verify baud rate 115200
-- Try enabling terminator (J4)
-- Check gap time is 10ms
+`No response received after 3 retries` means the gateway accepted the TCP connection
+but nothing came back from the RS485 side. Check in this order:
+
+1. **Serial Protocol = None**, not `Modbus` (most common cause by far)
+2. Communication Settings: Work Mode `TCP Server`, Local Port `502`, Route `Uart`
+3. Wires on the **BMS RJ12 (J20)** — the `+ A B -` connectors are sensor inputs,
+   not Modbus
+4. GND connected, not only A and B
+5. Baud rate 115200 and parity None, matching the Vent-Axia Connect app
+6. Slave ID is 2
+7. A/B not reversed
+8. Terminator J4 — only relevant for cables longer than 10 m; a missing terminator
+   does not cause total silence
+
+Run `tools/gateway_test.py` to find out which of these it is.
 
 ### Wrong Data Values
 - Verify register addresses
@@ -313,23 +328,19 @@ modbus:
 | File | Purpose |
 |------|---------|
 | `BMS_PIN_mapping.png` | Official pinout diagram from Vent-Axia |
-| `modbus_tcp_config.yaml` | Home Assistant Modbus configuration |
-| `test_modbus_connection.py` | Python test script |
-| `MVHR-BMS Modbus Map.pdf` | Complete register documentation |
+| `MVHR-BMS_ModBus Map_page2.png` | Register documentation |
+| `tools/gateway_test.py` | Gateway diagnostic script (Python 3, no dependencies) |
+| `README.md` | Installation and troubleshooting |
 
 ---
 
-## Contact Information
+## Credits
 
-### Vent-Axia Support
-- **Vent-Axia UK technical support** - Continuous Improvement Manager & HR, Vent-Axia B.V.
-- Email: REMOVED
-- Phone: REMOVED
+- **Vent-Axia / Ventilair** — official BMS pinout documentation and technical support
+- **Peter Koval** ([@Koky05](https://github.com/Koky05)) — integration development
 
-### Project Owner
-- **Peter Kováľ**
-- Email: REMOVED
-- Phone: REMOVED
+Questions and problem reports belong in
+[GitHub Issues](https://github.com/Koky05/comair-modbus-homeassistant/issues).
 
 ---
 

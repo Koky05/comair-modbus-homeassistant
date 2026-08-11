@@ -127,18 +127,41 @@ The BMS board has a 120Ω terminator (R51) enabled via jumper **J4**:
 
 ## Gateway Configuration
 
-Configure your gateway with these settings (confirmed by Vent-Axia UK):
+This integration speaks **Modbus RTU over TCP**: Home Assistant builds the complete RTU frame (including the CRC) and the gateway must pass the bytes through **unchanged**. The gateway must therefore be a transparent serial bridge — it must *not* do Modbus protocol conversion.
+
+### Serial settings
 
 | Setting | Value |
 |---------|-------|
-| Protocol | RTU over TCP |
-| TCP Port | 502 |
+| **Protocol** | **None** (transparent) — see warning below |
 | Baud Rate | 115200 |
 | Data Bits | 8 |
 | Parity | None |
 | Stop Bits | 1 |
+| Flow Control | Disable |
 | Duplex | Half-duplex |
-| Gap Time | 10ms |
+| Buffer Size | 512 |
+| Gap Time | 50 |
+| Frame Length | 256 |
+| Frame Time | 100 |
+
+### Network settings
+
+| Setting | Value |
+|---------|-------|
+| Protocol | TCP Server |
+| Local Port | 502 |
+| Route | Uart |
+| Security | None |
+
+> **Do not set the serial Protocol to "Modbus".** On the Elfin EW11A the serial
+> settings page offers `Modbus` in the Protocol dropdown. That mode makes the
+> gateway expect **Modbus TCP** (MBAP-framed) requests from the network and
+> silently discard the RTU frames this integration sends. The symptom is
+> `No response received after 3 retries` even though the wiring is perfect.
+> See [Troubleshooting](#no-response-received-after-3-retries).
+
+The values above are read from a working EW11A, not from a datasheet.
 
 ### EW11A Configuration Screenshots
 
@@ -317,18 +340,67 @@ A ready-to-use `picture-elements` Lovelace card that mimics the physical HRUC-Pl
 
 ## Troubleshooting
 
+### Diagnostic script
+
+Before changing anything, run [`tools/gateway_test.py`](tools/gateway_test.py). It needs
+only Python 3 (no Home Assistant, no `pymodbus`) and can run from any PC on the same
+network, or from the *Advanced SSH & Web Terminal* add-on:
+
+```bash
+python3 tools/gateway_test.py 192.168.1.50
+```
+
+It tests the TCP connection, sends a request in both RTU-over-TCP and Modbus TCP
+framing, sweeps device IDs 1–16, and prints which side of the chain is broken.
+
+### `No response received after 3 retries`
+
+This error means the TCP connection to the gateway **succeeded** and the request was
+sent, but nothing came back from the RS485 side — complete silence rather than
+corrupted data. The network half of the setup is therefore already correct. Two
+possibilities remain, in order of likelihood:
+
+**1. The gateway never puts the request on the RS485 wire.**
+
+- Serial settings: **Protocol = None**. If it is set to `Modbus`, the gateway expects
+  Modbus TCP from the network and drops the RTU frames — this is by far the most
+  common cause.
+- Network settings: Protocol = `TCP Server`, Local Port = `502`, Route = `Uart`.
+- Confirmation: in `tools/gateway_test.py`, if test 3 (Modbus TCP framing) gets a reply
+  while test 2 (RTU over TCP) does not, the gateway is in conversion mode.
+
+**2. The request reaches the wire, but the unit does not answer.**
+
+- Open the gateway's status page and watch the serial Tx/Rx counters while the script
+  runs. Tx increasing but Rx flat means the unit is not responding.
+- Verify the wires are on the **BMS RJ12 connector (J20)**. The connectors labelled
+  `+ A B -` are the *sensor* connectors and carry no Modbus.
+- Check GND is connected, not only A and B.
+- Confirm the gateway is an **EW11A** (RS485, terminals A/B/C/D). The plain EW11 is
+  RS232 and cannot talk to the unit.
+- Try swapping A and B — but only after Protocol = None is confirmed, otherwise two
+  variables change at once.
+- Verify baud rate and parity match the Vent-Axia Connect app (Advanced Settings →
+  Modbus): 115200 / 8 / None / 1.
+
+The J4 terminator and alternative device IDs are *not* likely causes: a missing
+terminator does not produce total silence, and while the gateway is misconfigured
+every device ID fails, so sweeping IDs proves nothing.
+
 ### Cannot Connect to Gateway
 
 - Verify gateway IP address is correct
 - Check gateway is powered and on network: `ping <gateway_ip>`
 - Verify TCP port 502 is accessible
+- Verify the gateway is in TCP Server mode on port 502
 
 ### Cannot Communicate with HRUC Unit
 
-- Check Slave ID is correct (default: 2)
-- Verify RS485 wiring (A→A, B→B, GND→GND)
+- Check the gateway serial Protocol is `None`, not `Modbus`
+- Check Device ID is correct (default: 2)
+- Verify RS485 wiring (A→A, B→B, GND→GND) on the BMS RJ12 connector
 - Check gateway serial settings match (115200/8/N/1)
-- Try enabling RS485 termination (jumper J4)
+- Try enabling RS485 termination (jumper J4) if the cable is longer than 10 m
 
 ### Sensors Show "Unavailable"
 
@@ -342,6 +414,10 @@ A ready-to-use `picture-elements` Lovelace card that mimics the physical HRUC-Pl
 - This is normal — the sensors will show as "Unknown"
 
 ### Test Modbus Connection
+
+With `pymodbus` available (inside the Home Assistant environment, for example). If you
+do not have `pymodbus`, use [`tools/gateway_test.py`](tools/gateway_test.py) instead — it
+uses only the Python standard library.
 
 ```python
 from pymodbus.client import ModbusTcpClient

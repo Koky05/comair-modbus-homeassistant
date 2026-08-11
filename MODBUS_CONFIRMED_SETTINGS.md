@@ -31,8 +31,14 @@ Baud Rate: 115200 ✅ (CORRECT)
 Data Bits: 8 ✅ (CORRECT)
 Stop Bits: 1 ✅ (CORRECT)
 Parity: None ✅ (CORRECT)
-Protocol: Modbus ✅ (CORRECT)
+Protocol: Modbus ❌ (WRONG - must be None/transparent)
 ```
+
+> **Correction (later finding):** the serial `Protocol: Modbus` setting was wrong.
+> The gateway must be a transparent bridge (`Protocol: None`), because the client
+> sends Modbus **RTU over TCP** with its own CRC. In `Modbus` mode the EW11A expects
+> MBAP-framed Modbus TCP from the network and discards those frames. See
+> [BMS_WIRING_GUIDE.md](BMS_WIRING_GUIDE.md) for the settings that actually work.
 
 ### Our Previous Testing
 ```
@@ -127,7 +133,7 @@ Serial Port:
   - Data Bits: 8 ✅
   - Stop Bits: 1 ✅
   - Parity: None ✅
-  - Protocol: Modbus ✅
+  - Protocol: Modbus ❌  → must be None (transparent)
 
 Network (netp):
   - Protocol: TCP Server
@@ -135,7 +141,8 @@ Network (netp):
   - Route: Uart ✅
 ```
 
-**Verify These Match App Settings:** ✅ All correct!
+**Verify These Match App Settings:** serial parameters yes — but the serial
+`Protocol` must be `None`, not `Modbus`.
 
 ---
 
