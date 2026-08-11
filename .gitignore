@@ -21,6 +21,12 @@ logcat_*.txt
 # PDFs and images (except BMS pinout)
 *.pdf
 
+# Personal app screenshots - contain WiFi SSID, LAN IP, unit serial,
+# keypad PIN and installer contact details. Never publish these.
+VentAxia_app_images/
+Mobile_app_screenshot*
+*_compressed.JPEG
+
 # Scripts and tools
 *.sh
 Device/
