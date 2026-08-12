@@ -12,13 +12,22 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
-    CONCENTRATION_PARTS_PER_MILLION,
     EntityCategory,
     PERCENTAGE,
     UnitOfEnergy,
     UnitOfPower,
     UnitOfTemperature,
 )
+
+# UnitOfRatio replaced CONCENTRATION_PARTS_PER_MILLION, which HA deprecated and
+# removes in Core 2027.8.  Both resolve to "ppm", so fall back on older cores
+# that predate the enum rather than raising the minimum HA version.
+try:
+    from homeassistant.const import UnitOfRatio
+
+    PARTS_PER_MILLION = UnitOfRatio.PARTS_PER_MILLION
+except ImportError:  # HA Core older than the UnitOfRatio enum
+    from homeassistant.const import CONCENTRATION_PARTS_PER_MILLION as PARTS_PER_MILLION
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -127,7 +136,7 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         translation_key="intake_co2",
         name="Intake CO2",
         device_class=SensorDeviceClass.CO2,
-        native_unit_of_measurement=CONCENTRATION_PARTS_PER_MILLION,
+        native_unit_of_measurement=PARTS_PER_MILLION,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data.get("intake_co2"),
     ),
@@ -136,7 +145,7 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         translation_key="extract_co2",
         name="Extract CO2",
         device_class=SensorDeviceClass.CO2,
-        native_unit_of_measurement=CONCENTRATION_PARTS_PER_MILLION,
+        native_unit_of_measurement=PARTS_PER_MILLION,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data.get("extract_co2"),
     ),
