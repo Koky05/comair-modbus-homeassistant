@@ -63,7 +63,8 @@
       "preheater_enable": { "name": "Preheater Enable" },
       "controlled_cooling": { "name": "Controlled Cooling" },
       "controlled_heating": { "name": "Controlled Heating" },
-      "bypass_active": { "name": "Summer Bypass" }
+      "bypass_active": { "name": "Summer Bypass" },
+      "bypass_output": { "name": "Bypass Output (unconfirmed)" }
     },
     "switch": {
       "virtual_input_1": { "name": "Virtual Input 1" },

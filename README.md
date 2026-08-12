@@ -7,7 +7,7 @@ Custom Home Assistant integration for **ComAir HRUC-Plus 3** / **Vent-Axia Senti
 
 ## Features
 
-- **38 Entities**: Comprehensive sensor and control coverage
+- **41 Entities**: Comprehensive sensor and control coverage (one diagnostic entity ships disabled)
 - **Config Flow UI**: Add via Settings → Integrations (no YAML editing)
 - **BMS Settings**: Configuration matches Vent-Axia Connect app
 - **Climate Control**: HVAC-like entity with preset modes
@@ -20,12 +20,26 @@ Custom Home Assistant integration for **ComAir HRUC-Plus 3** / **Vent-Axia Senti
 | Platform | Count | Entities |
 |----------|-------|----------|
 | sensor | 20 | Temperatures (4), Humidity (2), CO2 (2), Fan RPM (2), Fan Speed % (2), Power, Energy, Heat Recovery, Timers (3), Diagnostics (3) |
-| binary_sensor | 5 | Attention LED, Cooling Enable, Preheater Enable, Controlled Cooling/Heating |
+| binary_sensor | 7 | Attention LED, Cooling Enable, Preheater Enable, Controlled Cooling/Heating, Summer Bypass, Bypass Output (diagnostic, disabled by default) |
 | switch | 10 | Virtual Inputs 1-10 (BMS control mapping) |
 | button | 1 | Sync Clock (write HA time to MVHR) |
 | select | 1 | Ventilation Mode (Auto/Low/Medium/High/Boost) |
 | number | 1 | Mode Duration (15-240 min, step 15) |
 | climate | 1 | Ventilation with preset modes |
+
+### About the bypass sensors
+
+The unit publishes no documented summer-bypass flag, so **Summer Bypass** is *inferred* from
+the air temperatures: when the bypass is open, supply tracks intake and exhaust tracks
+extract. When intake and extract are within 3 °C of each other there is not enough signal to
+judge, and the sensor reports `unknown` rather than guessing.
+
+**Bypass Output** is a candidate for a direct reading. Register 30025 appears in the official
+Gen V map only as *"Other output sources… TODO/TBC"*, so its meaning is unconfirmed — it
+ships **disabled**, as a diagnostic. If you enable it and can compare it against the bypass
+status in the Vent-Axia Connect app on a warm day, please report what you see in an issue.
+Confirmation across a couple of models would let the guesswork be replaced with the real
+flag.
 
 ---
 
@@ -40,7 +54,12 @@ The **ComAir HRUC-Plus 3** (also sold as **Vent-Axia Sentinel Kinetic Advance**)
 |--------|----------|--------|
 | ComAir HRUC-Plus 3 | 250, 350 | 350 tested |
 | Vent-Axia Sentinel Kinetic Advance | 250S/SX, 350S/SX (LH/RH) | 350SX RH tested |
+| Vent-Axia Sentinel Econiq | SC | Tested — confirmed working by a user |
 | Vent-Axia Sentinel Kinetic Apex | Gen V | Should work (same Modbus map) |
+
+All Gen V units share the same Modbus register map, which is why models beyond the tested
+ones generally work. If you get another model running, please open an issue so it can be
+added here.
 
 ### 2. Modbus RTU to TCP Gateway
 
@@ -134,16 +153,22 @@ This integration speaks **Modbus RTU over TCP**: Home Assistant builds the compl
 | Setting | Value |
 |---------|-------|
 | **Protocol** | **None** (transparent) — see warning below |
+| **CLI** | **Disable** — see warning below |
 | Baud Rate | 115200 |
 | Data Bits | 8 |
 | Parity | None |
 | Stop Bits | 1 |
-| Flow Control | Disable |
-| Duplex | Half-duplex |
+| Flow Control | `Disable` or `Half-Duplex` — both confirmed working |
 | Buffer Size | 512 |
-| Gap Time | 50 |
-| Frame Length | 256 |
-| Frame Time | 100 |
+| Gap Time | anywhere in 10–50 — both ends of that range confirmed working |
+
+RS485 is a two-wire bus and therefore always half duplex; that is a property of the
+wiring, not a setting you need to hunt for. The EW11A exposes a single **Flow Control**
+dropdown in which `Half-Duplex` is one of the values, and either it or `Disable` works.
+
+`Frame Length` and `Frame Time` are **not** on the Serial Port Settings page. They exist
+only in the gateway's configuration export, and the defaults are fine — if you cannot find
+them in the web interface, nothing is wrong.
 
 ### Network settings
 
@@ -154,11 +179,18 @@ This integration speaks **Modbus RTU over TCP**: Home Assistant builds the compl
 | Route | Uart |
 | Security | None |
 
-> **Do not set the serial Protocol to "Modbus".** On the Elfin EW11A the serial
-> settings page offers `Modbus` in the Protocol dropdown. That mode makes the
-> gateway expect **Modbus TCP** (MBAP-framed) requests from the network and
-> silently discard the RTU frames this integration sends. The symptom is
-> `No response received after 3 retries` even though the wiring is perfect.
+> **Two settings must be right, and both fail the same silent way.**
+>
+> **Protocol = `None`.** The Elfin EW11A offers `Modbus` in the Protocol dropdown. That
+> mode makes the gateway expect **Modbus TCP** (MBAP-framed) requests from the network and
+> silently discard the RTU frames this integration sends.
+>
+> **CLI = `Disable`.** With CLI set to `Serial String` the gateway watches the serial
+> stream for its escape sequence (`+++`) so it can drop into command mode — meaning it
+> inspects, and can absorb, bytes in transit. Modbus RTU is raw binary in which any byte
+> pattern may occur, so a gateway hunting for a trigger string is not a clean pipe.
+>
+> Either mistake produces `No response received after 3 retries` with perfect wiring.
 > See [Troubleshooting](#no-response-received-after-3-retries).
 
 The values above are read from a working EW11A, not from a datasheet.

@@ -41,6 +41,10 @@ try_pairing_mode.py
 test_modbus_*.py
 test_slave_ids.py
 
+# Python bytecode
+__pycache__/
+*.py[cod]
+
 # macOS
 .DS_Store
 

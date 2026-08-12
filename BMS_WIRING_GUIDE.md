@@ -165,29 +165,36 @@ Login / password: as configured on your own device
 | Setting | Value | Location |
 |---------|-------|----------|
 | **Protocol** | **None** (transparent) | Serial Settings |
+| **CLI** | **Disable** | Serial Settings |
 | **Baud Rate** | 115200 | Serial Settings |
 | **Data Bits** | 8 | Serial Settings |
 | **Parity** | None | Serial Settings |
 | **Stop Bits** | 1 | Serial Settings |
-| **Flow Control** | Disable | Serial Settings |
-| **Duplex** | Half-duplex | Serial Settings |
+| **Flow Control** | `Disable` or `Half-Duplex` (both work) | Serial Settings |
 | **Buffer Size** | 512 | Serial Settings |
-| **Gap Time** | 50 | Serial Settings |
-| **Frame Length** | 256 | Serial Settings |
-| **Frame Time** | 100 | Serial Settings |
+| **Gap Time** | 10–50 (both ends work) | Serial Settings |
 | **Work Mode** | TCP Server | Communication Settings |
 | **Local Port** | 502 | Communication Settings |
 | **Route** | Uart | Communication Settings |
 | **Security** | None | Communication Settings |
 
-> **The serial Protocol must be `None`, never `Modbus`.**
-> Home Assistant sends Modbus **RTU over TCP** — it builds the complete RTU frame
-> including the CRC, and the gateway only has to forward the bytes untouched. With
-> Protocol = `Modbus` the EW11A instead expects MBAP-framed Modbus TCP from the
-> network and silently discards the RTU frames, which produces
-> `No response received after 3 retries` even with perfect wiring.
+> **Two settings must be right, and both fail identically and silently.**
+>
+> **Protocol = `None`, never `Modbus`.** Home Assistant sends Modbus **RTU over TCP** —
+> it builds the complete RTU frame including the CRC, and the gateway only has to forward
+> the bytes untouched. With Protocol = `Modbus` the EW11A instead expects MBAP-framed
+> Modbus TCP from the network and discards the RTU frames.
+>
+> **CLI = `Disable`.** In `Serial String` mode the gateway scans the serial stream for its
+> `+++` escape sequence, so it inspects and can absorb bytes in transit — fatal for raw
+> binary Modbus frames.
+>
+> Either one produces `No response received after 3 retries` with perfect wiring.
 
-These values are read from a working EW11A installation.
+`Frame Length` and `Frame Time` are not on the Serial Port Settings page — they exist only
+in the gateway's configuration export and can be left at their defaults.
+
+These values are read from working EW11A installations on two different unit models.
 
 ### Verification Checklist
 - [ ] Power LED on (indicates 5V power working)
