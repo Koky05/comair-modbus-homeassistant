@@ -322,9 +322,18 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _detect_bypass(data: dict[str, Any]) -> bool | None:
         """Detect summer bypass (SBP) from temperature relationships.
 
-        When bypass is open, supply air bypasses the heat exchanger:
+        The unit publishes no bypass flag, so it is inferred. When the bypass
+        is open, supply air stops passing through the heat exchanger:
         - supply_temp tracks intake_temp (within ~2 C)
         - exhaust_temp tracks extract_temp (within ~2 C)
+
+        Per the manufacturer's manual ("Zomer bypassmodus"), the bypass only
+        engages when the indoor and outdoor thresholds are both exceeded *and*
+        the outdoor temperature is below the indoor temperature. So whenever
+        intake is at or above extract the damper cannot be open, which is
+        reported as a confident False rather than as unknown. The thresholds
+        themselves are user-configurable and not readable over Modbus, so they
+        are not assumed here.
         """
         intake = data.get("intake_temp")
         supply = data.get("supply_temp")
@@ -334,7 +343,11 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if any(v is None for v in [intake, supply, extract]):
             return None
 
-        temp_range = abs(extract - intake)
+        # Outdoor air not cooler than indoor: bypass cannot be doing anything.
+        if intake >= extract:
+            return False
+
+        temp_range = extract - intake
         if temp_range < 3.0:
             return None
 

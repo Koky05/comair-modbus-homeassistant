@@ -39,6 +39,19 @@ different model: when the bypass was genuinely open the sensor read `on`, and wh
 closed the sensor read `off` or `unknown`. So it is sound, with `unknown` as the honest
 answer in the narrow-spread case rather than a wrong one.
 
+The manual's own rule ("Zomer bypassmodus") is that the bypass engages only when the
+indoor and outdoor thresholds are both exceeded **and the outdoor temperature is below the
+indoor temperature**, and that it disengages as soon as either threshold is crossed back.
+The sensor uses the necessary half of that: whenever intake is at or above extract the
+damper cannot be open, so it reports a confident `off` instead of `unknown`. The
+thresholds themselves are user-configurable on the unit and not exposed over Modbus, so
+they are not assumed. `unknown` is now limited to the genuinely ambiguous band — outdoor
+cooler than indoor, but by less than 3 °C.
+
+The manual also describes bypass modes the bus cannot report: *Off*, *Normal*, *Evening
+cooling* (runs 5 hours, then reverts) and *Night cooling* (runs until the outdoor
+temperature rises again).
+
 **There is no register that reports the bypass directly.** Register 30025, listed in the
 official Gen V map only as *"Other output sources… TODO/TBC"*, was tested as a candidate and
 ruled out: it sits permanently at `1` on both an HRUC-Plus 3 VR and a Sentinel Econiq SC
@@ -431,6 +444,13 @@ temperature where Polish calls it the extract temperature.
 **How warnings clear**, per the Dutch manual: W-1 to W-7, W-10, W-11 and W-20 clear
 once the unit recovers and is power cycled; W-12 and W-13 clear once the filter or
 service values are reset.
+
+> **Older controllers use a different scheme.** An earlier HRUC-Plus edition (manual
+> 475340, same 10040001xx reference numbers) reports faults as additive numbers rather
+> than F-/W-/N- codes — `01` fan left, `02` fan right, `04` temperature sensor left, `08`
+> right, and so on, summed together, so `03` means both fans. This integration reads the
+> Gen V bitmask registers and decodes the F-/W-/N- scheme; if your controller shows plain
+> numbers instead, it predates what these registers expose.
 
 ---
 
