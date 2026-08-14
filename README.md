@@ -13,7 +13,7 @@ Custom Home Assistant integration for **ComAir HRUC-Plus 3** / **Vent-Axia Senti
 - **Climate Control**: HVAC-like entity with preset modes
 - **Energy Tracking**: Integrated energy sensor for HA Energy dashboard
 - **Heat Recovery**: Calculated efficiency sensor
-- **Translations**: English, Slovak, Czech
+- **Translations**: English, Slovak, Czech, Polish — terminology taken from the manufacturer's own manuals (Comair HRUC-Plus NL and PL editions)
 
 ## Entities
 

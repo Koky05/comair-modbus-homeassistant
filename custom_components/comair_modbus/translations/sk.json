@@ -38,7 +38,7 @@
       "intake_temp": { "name": "Teplota nasávania" },
       "supply_temp": { "name": "Teplota prívodného vzduchu" },
       "extract_temp": { "name": "Teplota odvodného vzduchu" },
-      "exhaust_temp": { "name": "Teplota výfuku" },
+      "exhaust_temp": { "name": "Teplota odpadného vzduchu" },
       "intake_humidity": { "name": "Vlhkosť nasávania" },
       "extract_humidity": { "name": "Vlhkosť odvodu" },
       "intake_co2": { "name": "CO2 nasávanie" },

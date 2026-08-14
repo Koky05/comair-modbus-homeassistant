@@ -1,0 +1,93 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Konfiguracja ComAir HRUC-Plus",
+        "description": "Wprowadź dane połączenia z bramką Modbus.\n\nUstawienia muszą być zgodne z ekranem BMS w aplikacji Vent-Axia Connect.",
+        "data": {
+          "host": "Adres IP bramki",
+          "port": "Port Modbus TCP",
+          "slave_id": "ID urządzenia (adres slave)",
+          "baud_rate": "Prędkość transmisji",
+          "data_bits": "Bity danych",
+          "parity": "Parzystość",
+          "stop_bits": "Bity stopu"
+        },
+        "data_description": {
+          "host": "Adres IP bramki EW11A lub podobnej bramki Modbus",
+          "port": "Port TCP komunikacji Modbus (domyślnie: 502)",
+          "slave_id": "Adres slave Modbus centrali HRUC (domyślnie: 2)",
+          "baud_rate": "Prędkość transmisji ustawiona na bramce",
+          "data_bits": "Liczba bitów danych (7 lub 8)",
+          "parity": "Ustawienie parzystości (brak, parzysta lub nieparzysta)",
+          "stop_bits": "Liczba bitów stopu (1 lub 2)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nie można połączyć się z bramką Modbus. Sprawdź adres IP i port.",
+      "cannot_communicate": "Połączono z bramką, ale brak komunikacji z centralą HRUC. Sprawdź ID urządzenia i okablowanie.",
+      "unknown": "Wystąpił nieoczekiwany błąd. Szczegóły znajdziesz w logach."
+    },
+    "abort": {
+      "already_configured": "To urządzenie jest już skonfigurowane."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "intake_temp": { "name": "Temperatura powietrza wlotowego" },
+      "supply_temp": { "name": "Temperatura nawiewu" },
+      "extract_temp": { "name": "Temperatura wyciągu" },
+      "exhaust_temp": { "name": "Temperatura powietrza wyrzutowego" },
+      "intake_humidity": { "name": "Wilgotność powietrza wlotowego" },
+      "extract_humidity": { "name": "Wilgotność wyciągu" },
+      "intake_co2": { "name": "CO2 powietrza wlotowego" },
+      "extract_co2": { "name": "CO2 wyciągu" },
+      "supply_fan_rpm": { "name": "Obroty wentylatora nawiewnego" },
+      "extract_fan_rpm": { "name": "Obroty wentylatora wyciągowego" },
+      "supply_fan_pct": { "name": "Prędkość wentylatora nawiewnego" },
+      "extract_fan_pct": { "name": "Prędkość wentylatora wyciągowego" },
+      "power": { "name": "Pobór mocy" },
+      "heat_recovery_efficiency": { "name": "Sprawność odzysku ciepła" },
+      "energy": { "name": "Energia" },
+      "run_time": { "name": "Czas pracy" },
+      "service_timer": { "name": "Czas do serwisu" },
+      "filter_timer": { "name": "Czas do czyszczenia filtra" },
+      "faults": { "name": "Usterki" },
+      "warnings": { "name": "Ostrzeżenia" },
+      "notifications": { "name": "Powiadomienia" }
+    },
+    "binary_sensor": {
+      "attention_led": { "name": "Dioda ostrzegawcza" },
+      "cooling_enable": { "name": "Zezwolenie na chłodzenie" },
+      "preheater_enable": { "name": "Zezwolenie na ogrzewanie wstępne" },
+      "controlled_cooling": { "name": "Chłodzenie sterowane" },
+      "controlled_heating": { "name": "Ogrzewanie sterowane" },
+      "bypass_active": { "name": "Obejście letnie" }
+    },
+    "switch": {
+      "virtual_input_1": { "name": "Wejście wirtualne 1" },
+      "virtual_input_2": { "name": "Wejście wirtualne 2" },
+      "virtual_input_3": { "name": "Wejście wirtualne 3" },
+      "virtual_input_4": { "name": "Wejście wirtualne 4" },
+      "virtual_input_5": { "name": "Wejście wirtualne 5" },
+      "virtual_input_6": { "name": "Wejście wirtualne 6" },
+      "virtual_input_7": { "name": "Wejście wirtualne 7" },
+      "virtual_input_8": { "name": "Wejście wirtualne 8" },
+      "virtual_input_9": { "name": "Wejście wirtualne 9" },
+      "virtual_input_10": { "name": "Wejście wirtualne 10" }
+    },
+    "button": {
+      "time_sync": { "name": "Synchronizacja zegara" }
+    },
+    "select": {
+      "ventilation_mode": { "name": "Tryb wentylacji" }
+    },
+    "number": {
+      "mode_duration": { "name": "Czas trwania trybu" }
+    },
+    "climate": {
+      "ventilation": { "name": "Wentylacja" }
+    }
+  }
+}
