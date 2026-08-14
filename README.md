@@ -7,7 +7,7 @@ Custom Home Assistant integration for **ComAir HRUC-Plus 3** / **Vent-Axia Senti
 
 ## Features
 
-- **41 Entities**: Comprehensive sensor and control coverage (one diagnostic entity ships disabled)
+- **40 Entities**: Comprehensive sensor and control coverage
 - **Config Flow UI**: Add via Settings → Integrations (no YAML editing)
 - **BMS Settings**: Configuration matches Vent-Axia Connect app
 - **Climate Control**: HVAC-like entity with preset modes
@@ -20,26 +20,31 @@ Custom Home Assistant integration for **ComAir HRUC-Plus 3** / **Vent-Axia Senti
 | Platform | Count | Entities |
 |----------|-------|----------|
 | sensor | 20 | Temperatures (4), Humidity (2), CO2 (2), Fan RPM (2), Fan Speed % (2), Power, Energy, Heat Recovery, Timers (3), Diagnostics (3) |
-| binary_sensor | 7 | Attention LED, Cooling Enable, Preheater Enable, Controlled Cooling/Heating, Summer Bypass, Bypass Output (diagnostic, disabled by default) |
+| binary_sensor | 6 | Attention LED, Cooling Enable, Preheater Enable, Controlled Cooling/Heating, Summer Bypass |
 | switch | 10 | Virtual Inputs 1-10 (BMS control mapping) |
 | button | 1 | Sync Clock (write HA time to MVHR) |
 | select | 1 | Ventilation Mode (Auto/Low/Medium/High/Boost) |
 | number | 1 | Mode Duration (15-240 min, step 15) |
 | climate | 1 | Ventilation with preset modes |
 
-### About the bypass sensors
+### About the Summer Bypass sensor
 
 The unit publishes no documented summer-bypass flag, so **Summer Bypass** is *inferred* from
 the air temperatures: when the bypass is open, supply tracks intake and exhaust tracks
 extract. When intake and extract are within 3 °C of each other there is not enough signal to
 judge, and the sensor reports `unknown` rather than guessing.
 
-**Bypass Output** is a candidate for a direct reading. Register 30025 appears in the official
-Gen V map only as *"Other output sources… TODO/TBC"*, so its meaning is unconfirmed — it
-ships **disabled**, as a diagnostic. If you enable it and can compare it against the bypass
-status in the Vent-Axia Connect app on a warm day, please report what you see in an issue.
-Confirmation across a couple of models would let the guesswork be replaced with the real
-flag.
+That inference has now been checked against a unit's own bypass status by a user on a
+different model: when the bypass was genuinely open the sensor read `on`, and when it was
+closed the sensor read `off` or `unknown`. So it is sound, with `unknown` as the honest
+answer in the narrow-spread case rather than a wrong one.
+
+**There is no register that reports the bypass directly.** Register 30025, listed in the
+official Gen V map only as *"Other output sources… TODO/TBC"*, was tested as a candidate and
+ruled out: it sits permanently at `1` on both an HRUC-Plus 3 VR and a Sentinel Econiq SC
+while the real bypass opens and closes. The relay outputs 30021–30024 (cooling enable,
+preheater enable, controlled cooling/heating) are not the bypass either — they appear to
+drive external heating and cooling equipment and follow temperature.
 
 ---
 

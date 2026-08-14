@@ -9,7 +9,6 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
-from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -67,21 +66,6 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[ComairBinarySensorEntityDescription, ...] = (
         name="Summer Bypass",
         icon="mdi:valve-open",
         value_fn=lambda data: data.get("bypass_active"),
-    ),
-    # Register 30025 appears in the official Gen V map only as
-    # "Other output sources... TODO/TBC", so its meaning is unconfirmed.  It is
-    # suspected to be the physical bypass damper output, which would replace the
-    # temperature-based inference used by "Summer Bypass" above.  Shipped
-    # disabled as a diagnostic so users can enable it and compare against the
-    # bypass status shown by the Vent-Axia app before it is relied on.
-    ComairBinarySensorEntityDescription(
-        key="bypass_output",
-        translation_key="bypass_output",
-        name="Bypass Output (unconfirmed)",
-        icon="mdi:help-circle-outline",
-        entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
-        value_fn=lambda data: data.get("bypass_output"),
     ),
 )
 

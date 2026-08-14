@@ -294,6 +294,12 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             data["controlled_cooling"] = self._bool_or_none(registers[3])  # 30023
             data["controlled_heating"] = self._bool_or_none(registers[4])  # 30024
         if len(registers) >= 6:
+            # 30025 is "Other output sources... TODO/TBC" in the official map.
+            # Tested 2026-08-14 on an HRUC-Plus 3 VR and a Sentinel Econiq SC:
+            # it sits permanently at 1 on both while the real summer bypass
+            # opens and closes, so it is NOT the bypass damper output. Its
+            # meaning is still unknown; kept only because the batch already
+            # covers it. Do not expose it as a bypass indicator.
             data["bypass_output"] = self._bool_or_none(registers[5])  # 30025
 
         return data

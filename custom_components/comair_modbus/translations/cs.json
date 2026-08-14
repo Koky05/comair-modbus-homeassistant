@@ -63,8 +63,7 @@
       "preheater_enable": { "name": "Předehřev povolen" },
       "controlled_cooling": { "name": "Řízené chlazení" },
       "controlled_heating": { "name": "Řízené topení" },
-      "bypass_active": { "name": "Letní obtok" },
-      "bypass_output": { "name": "Výstup obtoku (nepotvrzeno)" }
+      "bypass_active": { "name": "Letní obtok" }
     },
     "switch": {
       "virtual_input_1": { "name": "Virtuální vstup 1" },
