@@ -373,6 +373,11 @@ A ready-to-use `picture-elements` Lovelace card that mimics the physical HRUC-Pl
 1. Copy SVG icons from `docs/icons/` to `/config/www/comair/` on your HA
 2. Copy `docs/icons/lcd_transparent.png` to `/config/www/comair/`
 3. Dashboard → Edit → Add Card → Manual → paste content from `docs/lovelace_controller_card.yaml`
+4. **Adjust the entity IDs.** Home Assistant derives an entity ID from the entity's
+   *translated* name when it is first created, so they depend on the UI language you
+   installed with. The card ships with the IDs from a Slovak install
+   (`sensor.comair_hruc_plus_3_teplota_nasavania`); on English you will have
+   `sensor.comair_hruc_plus_3_intake_duct_temperature`. Search-and-replace before use.
 
 ---
 

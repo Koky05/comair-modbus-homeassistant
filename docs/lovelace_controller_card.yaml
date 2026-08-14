@@ -1,3 +1,9 @@
+# NOTE: the entity IDs below were generated on a Slovak-language Home Assistant,
+# so they read e.g. sensor.comair_hruc_plus_3_teplota_nasavania. Home Assistant
+# builds an entity ID from the entity's *translated* name when it is first
+# created, so yours will differ if you installed with a different UI language
+# (English gives sensor.comair_hruc_plus_3_intake_duct_temperature, and so on).
+# Search-and-replace the IDs to match your own install before using this card.
 type: picture-elements
 image: /local/comair/lcd_transparent.png
 elements:
