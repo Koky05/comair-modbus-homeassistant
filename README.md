@@ -381,6 +381,59 @@ A ready-to-use `picture-elements` Lovelace card that mimics the physical HRUC-Pl
 
 ---
 
+## Fault, Warning and Notification Codes
+
+The unit reports these as three 32-bit bitmasks. The **Faults**, **Warnings** and
+**Notifications** sensors show the active codes as their state (`OK`, `W-12`, or
+`W-12, W-15`), and carry the meaning of each one in attributes:
+
+```yaml
+state: "W-12, W-15"
+attributes:
+  codes: ["W-12", "W-15"]
+  descriptions:
+    - "W-12: Filter cleaning or replacement overdue"
+    - "W-15: BMS offline"
+```
+
+The state stays a compact code list so automations and history keep working; the
+descriptions are attributes, which is where a template or a card can pick them up.
+An undocumented bit is passed through as raw hex (`0x40000000`) rather than hidden.
+
+| Faults | | Warnings | | Notifications | |
+|---|---|---|---|---|---|
+| F-1 | Supply air thermistor | W-1 | Supply air temperature | N-1 | Filter cleaning/replacement due soon |
+| F-2 | Extract air thermistor | W-2 | Exhaust air temperature | N-2 | Service due soon |
+| F-3 | Supply fan | W-3 | Preheated air temperature | N-3 | Device offline |
+| F-4 | Extract fan | W-4 | Intake air humidity | N-4 | Cooling suspended |
+| F-8 | Supply air too cold | W-5 | Extract air humidity | N-5 | Cooling insufficient |
+| F-32 | HMI communication lost | W-6 | Supply air flow | | |
+| | | W-7 | Extract air flow | | |
+| | | W-8 | Left filter sensor | | |
+| | | W-9 | Right filter sensor | | |
+| | | W-10 | System overpressure | | |
+| | | W-11 | Preheater activated | | |
+| | | W-12 | Filter cleaning or replacement overdue | | |
+| | | W-13 | Service interval overdue | | |
+| | | W-14 | Lost connection to sensors or controllers | | |
+| | | W-15 | BMS offline | | |
+| | | W-18 | Bypass or heat exchanger efficiency | | |
+| | | W-19 | Preheater IO offline | | |
+| | | W-20 | Cooling unit offline | | |
+
+Sourced from the manufacturer's manuals, which do not cover the same set — the Dutch
+edition documents F-8, W-18 to W-20 and N-3 to N-5 but omits W-8 and W-9; the Polish
+edition (01/2024) documents W-8 and W-9 but omits the others. Two disagreements are
+left as the Dutch edition has them and noted in `const.py`: it calls F-1 the supply
+thermistor where Polish calls it the inlet thermistor, and W-2 the exhaust
+temperature where Polish calls it the extract temperature.
+
+**How warnings clear**, per the Dutch manual: W-1 to W-7, W-10, W-11 and W-20 clear
+once the unit recovers and is power cycled; W-12 and W-13 clear once the filter or
+service values are reset.
+
+---
+
 ## Modbus Register Map
 
 ![Modbus Register Map](docs/images/modbus_register_map.png)

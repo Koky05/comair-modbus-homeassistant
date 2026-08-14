@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
+    CODE_DESCRIPTIONS,
     DEFAULT_OVERRIDE_DURATION,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -188,20 +189,33 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     _NOTIFICATION_CODES = {0: "N-1", 1: "N-2", 2: "N-3", 3: "N-4", 4: "N-5"}
 
     @staticmethod
-    def _decode_bitmask(value: int, code_map: dict[int, str]) -> str:
-        """Decode a bitmask into comma-separated code IDs."""
+    def _decode_bits(value: int, code_map: dict[int, str]) -> list[str]:
+        """Decode a bitmask into a list of code IDs, plus any unknown bits."""
         if value == 0:
-            return ""
-        codes = []
-        for bit, code_id in sorted(code_map.items()):
-            if value & (1 << bit):
-                codes.append(code_id)
-        # Include unknown bits
+            return []
+        codes = [
+            code_id
+            for bit, code_id in sorted(code_map.items())
+            if value & (1 << bit)
+        ]
         known_bits = sum(1 << b for b in code_map)
         unknown = value & ~known_bits
         if unknown:
             codes.append(f"0x{unknown:X}")
-        return ", ".join(codes)
+        return codes
+
+    @staticmethod
+    def _describe(codes: list[str]) -> list[str]:
+        """Pair each code ID with its meaning from the manufacturer's manuals.
+
+        Unknown bits, which appear as raw hex, are passed through unchanged so
+        an undocumented code is still visible rather than silently dropped.
+        """
+        described = []
+        for code in codes:
+            text = CODE_DESCRIPTIONS.get(code)
+            described.append(f"{code}: {text}" if text else code)
+        return described
 
     def _parse_status_registers(self, registers: list[int]) -> dict[str, Any]:
         """Parse status registers 30001-30010."""
@@ -213,22 +227,22 @@ class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             data["filter_timer"] = registers[2] + 1  # 30003: Filter Timer (0-based)
             # 30004-30005: Faults (32-bit bitmask)
             faults_raw = (registers[3] << 16) | registers[4]
-            data["faults"] = (
-                self._decode_bitmask(faults_raw, self._FAULT_CODES)
-                or "OK"
-            )
+            fault_codes = self._decode_bits(faults_raw, self._FAULT_CODES)
+            data["faults"] = ", ".join(fault_codes) or "OK"
+            data["fault_codes"] = fault_codes
+            data["fault_details"] = self._describe(fault_codes)
             # 30006-30007: Warnings (32-bit bitmask)
             warnings_raw = (registers[5] << 16) | registers[6]
-            data["warnings"] = (
-                self._decode_bitmask(warnings_raw, self._WARNING_CODES)
-                or "OK"
-            )
+            warning_codes = self._decode_bits(warnings_raw, self._WARNING_CODES)
+            data["warnings"] = ", ".join(warning_codes) or "OK"
+            data["warning_codes"] = warning_codes
+            data["warning_details"] = self._describe(warning_codes)
             # 30008-30009: Notifications (32-bit bitmask)
             notif_raw = (registers[7] << 16) | registers[8]
-            data["notifications"] = (
-                self._decode_bitmask(notif_raw, self._NOTIFICATION_CODES)
-                or "OK"
-            )
+            notif_codes = self._decode_bits(notif_raw, self._NOTIFICATION_CODES)
+            data["notifications"] = ", ".join(notif_codes) or "OK"
+            data["notification_codes"] = notif_codes
+            data["notification_details"] = self._describe(notif_codes)
             data["power"] = registers[9]  # 30010: Power (W)
 
         return data

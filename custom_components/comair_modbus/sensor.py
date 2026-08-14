@@ -42,6 +42,24 @@ class ComairSensorEntityDescription(SensorEntityDescription):
     """Describes ComAir sensor entity."""
 
     value_fn: Callable[[dict], float | int | str | None]
+    # Optional extra attributes, e.g. the meaning of each active fault code.
+    attrs_fn: Callable[[dict], dict | None] | None = None
+
+
+def _code_attrs(codes_key: str, details_key: str) -> Callable[[dict], dict | None]:
+    """Expose active codes and their meanings as attributes.
+
+    The state stays the compact code list ("W-12, W-15") so automations and
+    history keep working; the human-readable meaning goes in attributes.
+    """
+
+    def _attrs(data: dict) -> dict | None:
+        codes = data.get(codes_key)
+        if codes is None:
+            return None
+        return {"codes": codes, "descriptions": data.get(details_key, [])}
+
+    return _attrs
 
 
 def _calc_heat_recovery(data: dict) -> float | None:
@@ -258,6 +276,7 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         icon="mdi:alert-circle",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: data.get("faults"),
+        attrs_fn=_code_attrs("fault_codes", "fault_details"),
     ),
     ComairSensorEntityDescription(
         key="warnings",
@@ -266,6 +285,7 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         icon="mdi:alert",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: data.get("warnings"),
+        attrs_fn=_code_attrs("warning_codes", "warning_details"),
     ),
     ComairSensorEntityDescription(
         key="notifications",
@@ -274,6 +294,7 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         icon="mdi:bell",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: data.get("notifications"),
+        attrs_fn=_code_attrs("notification_codes", "notification_details"),
     ),
 )
 
@@ -302,6 +323,13 @@ class ComairSensor(CoordinatorEntity[ComairModbusCoordinator], SensorEntity):
         if self.coordinator.data is None:
             return None
         return self.entity_description.value_fn(self.coordinator.data)
+
+    @property
+    def extra_state_attributes(self) -> dict | None:
+        """Return extra attributes, for sensors that define them."""
+        if self.entity_description.attrs_fn is None or self.coordinator.data is None:
+            return None
+        return self.entity_description.attrs_fn(self.coordinator.data)
 
 
 class ComairEnergySensor(

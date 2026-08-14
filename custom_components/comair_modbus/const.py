@@ -283,3 +283,65 @@ MODE_NAMES: Final[dict[int, str]] = {v: k for k, v in VENTILATION_MODES.items()}
 # ============================================================================
 MANUFACTURER: Final = "Ventilair/Vent-Axia"
 MODEL: Final = "HRUC-Plus 3"
+
+# ============================================================================
+# FAULT / WARNING / NOTIFICATION CODE DESCRIPTIONS
+#
+# Taken from the manufacturer's own manuals, which do not cover the same set:
+#   NL = "Installatie en gebruikershandleiding", Comair HRUC-Plus (Dutch)
+#        — has F-8, W-18, W-19, W-20, N-3, N-4, N-5; omits W-8 and W-9
+#   PL = "COMAIR HRUC-Plus instrukcja 01/2024" (Polish)
+#        — has W-8 and W-9; omits the codes listed above
+# Together they cover every code the bitmask decoder can produce.
+#
+# Where the two editions disagree, the disagreement is noted rather than
+# silently resolved.
+# ============================================================================
+FAULT_DESCRIPTIONS: Final[dict[str, str]] = {
+    # NL calls F-1 the supply thermistor, PL the inlet thermistor.
+    "F-1": "Supply air thermistor",
+    "F-2": "Extract air thermistor",
+    "F-3": "Supply fan",
+    "F-4": "Extract fan",
+    "F-8": "Supply air too cold",
+    "F-32": "HMI communication lost",
+}
+
+WARNING_DESCRIPTIONS: Final[dict[str, str]] = {
+    "W-1": "Supply air temperature",
+    # NL calls W-2 the exhaust temperature, PL the extract temperature.
+    "W-2": "Exhaust air temperature",
+    "W-3": "Preheated air temperature",
+    "W-4": "Intake air humidity",
+    "W-5": "Extract air humidity",
+    "W-6": "Supply air flow",
+    "W-7": "Extract air flow",
+    "W-8": "Left filter sensor",
+    "W-9": "Right filter sensor",
+    "W-10": "System overpressure",
+    "W-11": "Preheater activated",
+    "W-12": "Filter cleaning or replacement overdue",
+    "W-13": "Service interval overdue",
+    "W-14": "Lost connection to sensors or controllers",
+    "W-15": "BMS offline",
+    "W-18": "Bypass or heat exchanger efficiency",
+    "W-19": "Preheater IO offline",
+    "W-20": "Cooling unit offline",
+}
+
+NOTIFICATION_DESCRIPTIONS: Final[dict[str, str]] = {
+    "N-1": "Filter cleaning or replacement due soon",
+    "N-2": "Service due soon",
+    "N-3": "Device offline",
+    "N-4": "Cooling suspended",
+    "N-5": "Cooling insufficient",
+}
+
+# How each warning clears, per the Dutch manual:
+#   W-1..W-7, W-10, W-11, W-20 — clear once the unit recovers and is power cycled
+#   W-12, W-13               — clear once the filter/service values are reset
+CODE_DESCRIPTIONS: Final[dict[str, str]] = {
+    **FAULT_DESCRIPTIONS,
+    **WARNING_DESCRIPTIONS,
+    **NOTIFICATION_DESCRIPTIONS,
+}
