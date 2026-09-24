@@ -85,19 +85,28 @@ You need a **WiFi or Ethernet RS485 gateway** to bridge the unit's RS485 bus to 
 
 | Gateway | Input Voltage | Interface | Tested |
 |---------|--------------|-----------|--------|
+| **Elfin EW11** | 5-18V DC | WiFi | Yes |
 | **Elfin EW11A** | 5-36V DC | WiFi | Yes |
 | Waveshare RS485 to ETH | 5-36V DC | Ethernet | Should work |
 | USR-W610 | 5V DC | WiFi | Should work |
 
-The **Elfin EW11A** is recommended — it can be powered directly from the BMS connector (5V or 24V), requires no external power supply, and fits neatly inside the ventilation unit.
+The **Elfin EW11(A)** is recommended because it can be powered directly from the BMS connector, requires no external power supply, and fits neatly inside the ventilation unit.
+
+The main difference between the **EW11** and **EW11A** is the supported DC input voltage range. The **EW11A** supports a higher input voltage and can be powered from either 5 V or 24 V. If you are using the **EW11**, make sure you use the 5 V supply and do not connect it to the 24 V power wire.
 
 <img src="docs/images/ew11a_installed.png" width="400">
 
 ### 3. RJ12 Cable (6P6C)
 
 A standard **RJ12 6-pin cable** to connect the gateway to the BMS connector on the HRUC unit. You can use:
-- RJ12 breakout adapter (recommended — clean, no soldering)
-- Cut and strip an RJ12 cable
+- RJ12 breakout adapter *OR*
+- A cut and stripped RJ12 cable *OR*
+- A cut RJ12 cable with an RJ45 connector crimped directly onto the other end (**compatible only with the Elfin EW11/EW11A**).
+
+<img src="docs/images/comair_modbus_j20_rj12_rj45_ew11_complete.jpg" width="400">
+<img src="docs/images/comair_modbus_j20_rj12_rj45_ew11_wires.jpg" width="400">
+
+If you hold the connectors like this, cut wires 1 and 2 from the RJ12 cable. Then insert wires 3, 4, 5, and 6 into RJ45 slots 5, 6, 8, and 7 respectively.
 
 ---
 
