@@ -55,7 +55,10 @@
       "filter_timer": { "name": "Filter Timer" },
       "faults": { "name": "Faults" },
       "warnings": { "name": "Warnings" },
-      "notifications": { "name": "Notifications" }
+      "notifications": { "name": "Notifications" },
+      "bypass_state": { "name": "Damper Position" },
+      "zone_temperature": { "name": "Zone Temperature" },
+      "zone_humidity": { "name": "Zone Humidity" }
     },
     "binary_sensor": {
       "attention_led": { "name": "Attention LED" },

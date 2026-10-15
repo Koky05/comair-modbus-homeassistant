@@ -1,469 +1,126 @@
-"""DataUpdateCoordinator for ComAir HRUC-Plus Modbus integration."""
+"""DataUpdateCoordinator for the ComAir HRUC-Plus Modbus integration."""
 from __future__ import annotations
 
 from datetime import timedelta
 import logging
-from typing import Any
 
-from pymodbus.client import AsyncModbusTcpClient
+from modbus_connection import (
+    ModbusConnectionError,
+    ModbusError,
+    ModbusUnit,
+)
+from modbus_connection.model import UpdateReport
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import (
-    CODE_DESCRIPTIONS,
-    DEFAULT_OVERRIDE_DURATION,
-    DEFAULT_SCAN_INTERVAL,
-    DOMAIN,
-    MODE_NAMES,
-    RETRY_COUNT,
-)
-
-# Sentinel value indicating "not available" in HRUC Modbus implementation
-UNAVAILABLE_VALUE = 32768  # 0x8000
+from .const import DEFAULT_OVERRIDE_DURATION, DEFAULT_SCAN_INTERVAL
+from .library import ComairHruC
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class ComairModbusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    """Coordinator for ComAir Modbus data updates."""
+class ComairModbusCoordinator(DataUpdateCoordinator[UpdateReport]):
+    """Poll the device object and track which sub-systems answered."""
 
     def __init__(
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
-        client: AsyncModbusTcpClient,
+        unit: ModbusUnit,
         slave_id: int,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
             hass,
             _LOGGER,
-            name=DOMAIN,
+            name="ComAir HRUC-Plus",
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
             config_entry=entry,
         )
-        self.client = client
+        self.unit = unit
         self.slave_id = slave_id
+        self.device = ComairHruC(unit)
         self.override_duration: int = DEFAULT_OVERRIDE_DURATION
-        self._last_data: dict[str, Any] = {}
-        self._failure_count = 0
+        self._failed: frozenset[str] = frozenset()
+        #: True until the refresh that runs during setup has completed.
+        self._setup_refresh = True
 
-    async def _async_update_data(self) -> dict[str, Any]:
-        """Fetch data from ComAir unit via Modbus."""
+    async def _async_update_data(self) -> UpdateReport:
+        """Refresh the device and translate failures into UpdateFailed.
+
+        The link reconnects on its own, so a dropped connection is reported
+        as a failed update rather than triggering a reload.
+        """
         try:
-            data: dict[str, Any] = {}
-
-            # Batch 1: Status registers 30001-30010 (addresses 0-9)
-            result = await self.client.read_input_registers(
-                address=0, count=10, device_id=self.slave_id
+            report = await self.device.async_update_readings(
+                # The refresh that runs during setup happens inside Home
+                # Assistant's bootstrap window. Leave zone discovery to the
+                # next poll so setup is not cancelled by the bootstrap
+                # timeout on a restart.
+                discover_zones=not self._setup_refresh,
             )
-            if not result.isError():
-                data.update(self._parse_status_registers(result.registers))
-            else:
-                _LOGGER.debug("Failed to read status registers: %s", result)
-
-            # Batch 2: Fan RPM 30014, 30016 (addresses 13, 15)
-            result = await self.client.read_input_registers(
-                address=13, count=4, device_id=self.slave_id
-            )
-            if not result.isError():
-                data.update(self._parse_fan_registers(result.registers))
-            else:
-                _LOGGER.debug("Failed to read fan RPM registers: %s", result)
-
-            # Batch 3: Binary status 30020-30025 (addresses 19-24)
-            result = await self.client.read_input_registers(
-                address=19, count=6, device_id=self.slave_id
-            )
-            if not result.isError():
-                data.update(self._parse_binary_registers(result.registers))
-            else:
-                _LOGGER.debug("Failed to read binary registers: %s", result)
-
-            # Batch 3: Intake sensors 30100-30102 (addresses 99-101)
-            result = await self.client.read_input_registers(
-                address=99, count=3, device_id=self.slave_id
-            )
-            if not result.isError():
-                data["intake_temp"] = self._scale_temp(result.registers[0])
-                data["intake_humidity"] = self._if_available(result.registers[1])
-                data["intake_co2"] = self._if_available(result.registers[2])
-            else:
-                _LOGGER.debug("Failed to read intake registers: %s", result)
-
-            # Batch 4: Supply temp 30110 (address 109)
-            result = await self.client.read_input_registers(
-                address=109, count=1, device_id=self.slave_id
-            )
-            if not result.isError():
-                data["supply_temp"] = self._scale_temp(result.registers[0])
-            else:
-                _LOGGER.debug("Failed to read supply temp: %s", result)
-
-            # Batch 5: Extract sensors 30120-30122 (addresses 119-121)
-            result = await self.client.read_input_registers(
-                address=119, count=3, device_id=self.slave_id
-            )
-            if not result.isError():
-                data["extract_temp"] = self._scale_temp(result.registers[0])
-                data["extract_humidity"] = self._if_available(result.registers[1])
-                data["extract_co2"] = self._if_available(result.registers[2])
-            else:
-                _LOGGER.debug("Failed to read extract registers: %s", result)
-
-            # Batch 6: Exhaust temp 30130 (address 129)
-            result = await self.client.read_input_registers(
-                address=129, count=1, device_id=self.slave_id
-            )
-            if not result.isError():
-                data["exhaust_temp"] = self._scale_temp(result.registers[0])
-            else:
-                _LOGGER.debug("Failed to read exhaust temp: %s", result)
-
-            # Batch 7: User override holding register 40030 (address 29)
-            # Note: HRUC resets this register to 0 after acknowledging
-            # an override.  The register only shows non-zero briefly
-            # or when set from the physical controller/app.
-            result = await self.client.read_holding_registers(
-                address=29, count=1, device_id=self.slave_id
-            )
-            if not result.isError():
-                data["user_override"] = result.registers[0]
-                data["current_mode"] = (result.registers[0] >> 8) & 0xFF
-                data["mode_duration"] = result.registers[0] & 0xFF
-                data["current_mode_name"] = MODE_NAMES.get(
-                    data["current_mode"], "Unknown"
-                )
-            else:
-                _LOGGER.debug("Failed to read user override: %s", result)
-
-            # BMS keep-alive: write 0 to register 40020 (address 19) each
-            # poll cycle.  This prevents the HRUC W-15 "BMS offline" warning
-            # that appears after a write to the user-override register.
+        except ModbusConnectionError as err:
+            # The gateway drops the socket between requests now and then. The
+            # link is already gone, so retrying reopens it immediately and
+            # costs nothing. Without this a dropped socket costs a whole poll
+            # cycle, which shows up as every entity briefly unavailable.
+            # Skipped during setup: that refresh runs inside Home Assistant's
+            # bootstrap window, where a second wait can push the entry past
+            # the bootstrap timeout and cancel it.
+            if self._setup_refresh:
+                raise UpdateFailed(str(err)) from err
+            _LOGGER.debug("ComAir: link dropped mid-poll (%s), retrying once", err)
             try:
-                await self.client.write_register(
-                    address=19, value=0, device_id=self.slave_id
+                report = await self.device.async_update_readings(
+                    discover_zones=False,
                 )
-            except Exception:
-                _LOGGER.debug("BMS keep-alive write failed (non-critical)")
+            except ModbusError as retry_err:
+                raise UpdateFailed(str(retry_err)) from retry_err
+        except ModbusError as err:
+            raise UpdateFailed(str(err)) from err
+        self._setup_refresh = False
 
-            # Detect summer bypass from temperature relationships
-            data["bypass_active"] = self._detect_bypass(data)
+        if not report.updated:
+            errors = list(report.failed.values())
+            raise UpdateFailed(
+                f"no sub-system answered: {errors[0]}"
+            ) from ExceptionGroup("every sub-system failed", errors)
 
-            # Success - reset failure count and merge data
-            self._failure_count = 0
-            self._last_data.update(data)
-            return self._last_data.copy()
+        for name in sorted(report.failed.keys() - self._failed):
+            _LOGGER.warning("Failed to fetch %s: %s", name, report.failed[name])
+        self._failed = frozenset(report.failed)
 
-        except Exception as err:
-            self._failure_count += 1
-            _LOGGER.debug(
-                "Transient failure %d/%d: %s",
-                self._failure_count,
-                RETRY_COUNT,
-                err,
-            )
-            if not self._last_data:
-                raise UpdateFailed(
-                    f"No data available from ComAir: {err}"
-                ) from err
-            if self._failure_count >= RETRY_COUNT:
-                raise UpdateFailed(
-                    f"Error communicating with ComAir after {RETRY_COUNT} attempts: {err}"
-                ) from err
-            # Return last known data on transient failures
-            return self._last_data
+        return report
 
-    # Bitmask-to-code-ID mapping from HRUC-Plus manual.
-    # Bit position → code ID (codes are not always sequential).
-    _FAULT_CODES = {0: "F-1", 1: "F-2", 2: "F-3", 3: "F-4", 7: "F-8", 31: "F-32"}
-    _WARNING_CODES = {
-        0: "W-1", 1: "W-2", 2: "W-3", 3: "W-4", 4: "W-5",
-        5: "W-6", 6: "W-7", 7: "W-8", 8: "W-9",
-        9: "W-10", 10: "W-11", 11: "W-12",
-        12: "W-13", 13: "W-14", 14: "W-15", 17: "W-18", 18: "W-19",
-        19: "W-20",
-    }
-    _NOTIFICATION_CODES = {0: "N-1", 1: "N-2", 2: "N-3", 3: "N-4", 4: "N-5"}
+    def available(self, *sub_systems: str) -> bool:
+        """Whether the coordinator and the named sub-systems last succeeded."""
+        return (
+            self.last_update_success
+            and (not self.data or all(name in self.data.updated for name in sub_systems))
+        )
 
-    @staticmethod
-    def _decode_bits(value: int, code_map: dict[int, str]) -> list[str]:
-        """Decode a bitmask into a list of code IDs, plus any unknown bits."""
-        if value == 0:
-            return []
-        codes = [
-            code_id
-            for bit, code_id in sorted(code_map.items())
-            if value & (1 << bit)
-        ]
-        known_bits = sum(1 << b for b in code_map)
-        unknown = value & ~known_bits
-        if unknown:
-            codes.append(f"0x{unknown:X}")
-        return codes
+    # ------------------------------------------------------------------
+    # Writes, routed through the device so entities stay thin
+    # ------------------------------------------------------------------
 
-    @staticmethod
-    def _describe(codes: list[str]) -> list[str]:
-        """Pair each code ID with its meaning from the manufacturer's manuals.
-
-        Unknown bits, which appear as raw hex, are passed through unchanged so
-        an undocumented code is still visible rather than silently dropped.
-        """
-        described = []
-        for code in codes:
-            text = CODE_DESCRIPTIONS.get(code)
-            described.append(f"{code}: {text}" if text else code)
-        return described
-
-    def _parse_status_registers(self, registers: list[int]) -> dict[str, Any]:
-        """Parse status registers 30001-30010."""
-        data: dict[str, Any] = {}
-
-        if len(registers) >= 10:
-            data["run_time"] = registers[0]  # 30001: Run Time (days)
-            data["service_timer"] = registers[1] + 1  # 30002: Service Timer (0-based)
-            data["filter_timer"] = registers[2] + 1  # 30003: Filter Timer (0-based)
-            # 30004-30005: Faults (32-bit bitmask)
-            faults_raw = (registers[3] << 16) | registers[4]
-            fault_codes = self._decode_bits(faults_raw, self._FAULT_CODES)
-            data["faults"] = ", ".join(fault_codes) or "OK"
-            data["fault_codes"] = fault_codes
-            data["fault_details"] = self._describe(fault_codes)
-            # 30006-30007: Warnings (32-bit bitmask)
-            warnings_raw = (registers[5] << 16) | registers[6]
-            warning_codes = self._decode_bits(warnings_raw, self._WARNING_CODES)
-            data["warnings"] = ", ".join(warning_codes) or "OK"
-            data["warning_codes"] = warning_codes
-            data["warning_details"] = self._describe(warning_codes)
-            # 30008-30009: Notifications (32-bit bitmask)
-            notif_raw = (registers[7] << 16) | registers[8]
-            notif_codes = self._decode_bits(notif_raw, self._NOTIFICATION_CODES)
-            data["notifications"] = ", ".join(notif_codes) or "OK"
-            data["notification_codes"] = notif_codes
-            data["notification_details"] = self._describe(notif_codes)
-            data["power"] = registers[9]  # 30010: Power (W)
-
-        return data
-
-    # Fan curve: measured RPM→% data points (average of supply/extract)
-    # Low=8%→817, Normal=15%→1021, High=30%→1489, Boost=100%→3347
-    _FAN_CURVE: list[tuple[int, float]] = [
-        (0, 0.0),
-        (817, 8.0),
-        (1021, 15.0),
-        (1489, 30.0),
-        (3347, 100.0),
-    ]
-
-    def _parse_fan_registers(self, registers: list[int]) -> dict[str, Any]:
-        """Parse fan RPM registers 30014-30017.
-
-        Reading 4 registers starting at address 13:
-          [0]=30014 (supply RPM), [1]=30015, [2]=30016 (extract RPM), [3]=30017
-        """
-        data: dict[str, Any] = {}
-
-        if len(registers) >= 3:
-            supply_rpm = self._scale_rpm(registers[0])  # 30014
-            extract_rpm = self._scale_rpm(registers[2])  # 30016
-            data["supply_fan_rpm"] = supply_rpm
-            data["extract_fan_rpm"] = extract_rpm
-
-            if supply_rpm is not None:
-                data["supply_fan_pct"] = self._rpm_to_pct(supply_rpm)
-            if extract_rpm is not None:
-                data["extract_fan_pct"] = self._rpm_to_pct(extract_rpm)
-
-        return data
-
-    def _rpm_to_pct(self, rpm: int) -> float:
-        """Convert RPM to fan speed percentage using linear interpolation.
-
-        Uses measured data points: 8%→817, 15%→1021, 30%→1489, 100%→3347.
-        """
-        curve = self._FAN_CURVE
-        if rpm <= curve[0][0]:
-            return curve[0][1]
-        if rpm >= curve[-1][0]:
-            return curve[-1][1]
-        # Find the two surrounding points and interpolate
-        for i in range(len(curve) - 1):
-            rpm_lo, pct_lo = curve[i]
-            rpm_hi, pct_hi = curve[i + 1]
-            if rpm_lo <= rpm <= rpm_hi:
-                ratio = (rpm - rpm_lo) / (rpm_hi - rpm_lo)
-                return round(pct_lo + ratio * (pct_hi - pct_lo), 1)
-        return 0.0
-
-    def _parse_binary_registers(self, registers: list[int]) -> dict[str, Any]:
-        """Parse binary status registers 30020-30025 (relay output states)."""
-        data: dict[str, Any] = {}
-
-        if len(registers) >= 5:
-            data["attention_led"] = self._bool_or_none(registers[0])  # 30020
-            data["cooling_enable"] = self._bool_or_none(registers[1])  # 30021
-            data["preheater_enable"] = self._bool_or_none(registers[2])  # 30022
-            data["controlled_cooling"] = self._bool_or_none(registers[3])  # 30023
-            data["controlled_heating"] = self._bool_or_none(registers[4])  # 30024
-        if len(registers) >= 6:
-            # 30025 is "Other output sources... TODO/TBC" in the official map.
-            # Tested 2026-08-14 on an HRUC-Plus 3 VR and a Sentinel Econiq SC:
-            # it sits permanently at 1 on both while the real summer bypass
-            # opens and closes, so it is NOT the bypass damper output. Its
-            # meaning is still unknown; kept only because the batch already
-            # covers it. Do not expose it as a bypass indicator.
-            data["bypass_output"] = self._bool_or_none(registers[5])  # 30025
-
-        return data
-
-    @staticmethod
-    def _detect_bypass(data: dict[str, Any]) -> bool | None:
-        """Detect summer bypass (SBP) from temperature relationships.
-
-        The unit publishes no bypass flag, so it is inferred. When the bypass
-        is open, supply air stops passing through the heat exchanger:
-        - supply_temp tracks intake_temp (within ~2 C)
-        - exhaust_temp tracks extract_temp (within ~2 C)
-
-        Per the manufacturer's manual ("Zomer bypassmodus"), the bypass only
-        engages when the indoor and outdoor thresholds are both exceeded *and*
-        the outdoor temperature is below the indoor temperature. So whenever
-        intake is at or above extract the damper cannot be open, which is
-        reported as a confident False rather than as unknown. The thresholds
-        themselves are user-configurable and not readable over Modbus, so they
-        are not assumed here.
-        """
-        intake = data.get("intake_temp")
-        supply = data.get("supply_temp")
-        extract = data.get("extract_temp")
-        exhaust = data.get("exhaust_temp")
-
-        if any(v is None for v in [intake, supply, extract]):
-            return None
-
-        # Outdoor air not cooler than indoor: bypass cannot be doing anything.
-        if intake >= extract:
-            return False
-
-        temp_range = extract - intake
-        if temp_range < 3.0:
-            return None
-
-        supply_near_intake = abs(supply - intake) <= 2.0
-
-        if exhaust is not None:
-            exhaust_near_extract = abs(exhaust - extract) <= 2.0
-            return supply_near_intake and exhaust_near_extract
-
-        return supply_near_intake
-
-    def _scale_temp(self, value: int) -> float | None:
-        """Scale temperature value (stored as int16 * 10)."""
-        if value == UNAVAILABLE_VALUE:
-            return None
-        # Handle signed int16
-        if value >= 32768:
-            value -= 65536
-        temp = round(value / 10.0, 1)
-        if temp < -50 or temp > 80:
-            _LOGGER.warning("Temperature out of range: %s", temp)
-            return None
-        return temp
-
-    def _scale_rpm(self, value: int) -> int | None:
-        """Return RPM value (raw register value = RPM, no scaling)."""
-        if value == UNAVAILABLE_VALUE:
-            return None
-        return value
-
-    def _if_available(self, value: int) -> int | None:
-        """Return value or None if it's the unavailable sentinel (0x8000)."""
-        return None if value == UNAVAILABLE_VALUE else value
-
-    def _bool_or_none(self, value: int) -> bool | None:
-        """Return bool or None if value is the unavailable sentinel (0x8000)."""
-        if value == UNAVAILABLE_VALUE:
-            return None
-        return bool(value)
-
-
-    async def async_write_user_override(
-        self, mode: int, duration: int | None = None
-    ) -> bool:
-        """Write user override register (40030).
-
-        Args:
-            mode: Ventilation mode (0=Auto, 1=Low, 2=Medium, 3=High, 4=Boost)
-            duration: Duration in minutes (15-240, step 15). If None, uses
-                      the current slider value. The MVHR ignores duration=0.
-
-        Returns:
-            True if successful, False otherwise
-        """
+    async def async_set_mode(self, mode: int, duration: int | None = None) -> bool:
+        """Set the airflow preset, using the slider duration by default."""
         if duration is None:
             duration = self.override_duration
-        # Validate mode (0=Auto, 1=Low, 2=Medium, 3=High, 4=Boost)
-        if mode not in range(5):
-            _LOGGER.error("Invalid ventilation mode: %d (must be 0-4)", mode)
-            return False
-        # Duration must be non-zero — MVHR silently ignores writes with duration=0
-        if duration <= 0:
-            duration = DEFAULT_OVERRIDE_DURATION
-        if duration > 240:
-            duration = 240
-        # Encode: MSB=mode, LSB=duration
-        value = ((mode & 0xFF) << 8) | (duration & 0xFF)
+        return await self.device.async_set_override(mode, duration)
 
-        try:
-            result = await self.client.write_register(
-                address=29, value=value, device_id=self.slave_id
-            )
-            if not result.isError():
-                _LOGGER.debug(
-                    "Set ventilation mode to %s for %d minutes (value=%d)",
-                    MODE_NAMES.get(mode, "Unknown"),
-                    duration,
-                    value,
-                )
-                # Immediately update coordinator data so entities reflect
-                # the change without waiting for the next poll cycle.
-                self._last_data["user_override"] = value
-                self._last_data["current_mode"] = mode
-                self._last_data["mode_duration"] = duration
-                self._last_data["current_mode_name"] = MODE_NAMES.get(
-                    mode, "Unknown"
-                )
-                self.async_set_updated_data(self._last_data.copy())
-                return True
-            else:
-                _LOGGER.error("Failed to write user override: %s", result)
-                return False
-        except Exception as err:
-            _LOGGER.exception("Error writing user override: %s", err)
-            return False
+    async def async_set_raw_mode(self, value: int) -> bool:
+        """Write a raw value to the override register."""
+        return await self.device.async_set_raw_override(value)
 
-    async def async_write_raw_override(self, value: int) -> bool:
-        """Write raw value to user override register (40030).
+    async def async_sync_clock(self, now) -> bool:
+        """Push a datetime to the unit's clock registers."""
+        return await self.device.async_set_clock(
+            now.year, now.month, now.day, now.hour, now.minute
+        )
 
-        Args:
-            value: Raw 16-bit value to write
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            result = await self.client.write_register(
-                address=29, value=value & 0xFFFF, device_id=self.slave_id
-            )
-            if not result.isError():
-                _LOGGER.debug("Set raw user override to %d", value)
-                await self.async_request_refresh()
-                return True
-            else:
-                _LOGGER.error("Failed to write raw user override: %s", result)
-                return False
-        except Exception as err:
-            _LOGGER.exception("Error writing raw user override: %s", err)
-            return False
+    async def async_set_virtual_input(self, index: int, value: bool) -> bool:
+        """Write one BMS virtual input."""
+        return await self.device.async_set_virtual_input(index, value)

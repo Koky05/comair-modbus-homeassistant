@@ -55,7 +55,10 @@
       "filter_timer": { "name": "Čas do výměny filtru" },
       "faults": { "name": "Poruchy" },
       "warnings": { "name": "Varování" },
-      "notifications": { "name": "Oznámení" }
+      "notifications": { "name": "Oznámení" },
+      "bypass_state": { "name": "Poloha klapky" },
+      "zone_temperature": { "name": "Teplota zóny" },
+      "zone_humidity": { "name": "Vlhkost zóny" }
     },
     "binary_sensor": {
       "attention_led": { "name": "Výstražná LED" },

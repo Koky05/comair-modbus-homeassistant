@@ -1,4 +1,9 @@
-"""Constants for the ComAir HRUC-Plus Modbus integration."""
+"""Home Assistant wiring for the ComAir HRUC-Plus Modbus integration.
+
+The register map and the device semantics live in :mod:`.library`, which has
+no Home Assistant imports. What is left here is what only this side needs:
+platforms, config keys and the defaults the config flow offers.
+"""
 from __future__ import annotations
 
 from typing import Final
@@ -37,8 +42,7 @@ DEFAULT_SCAN_INTERVAL: Final = 30
 DEFAULT_OVERRIDE_DURATION: Final = 240  # 4 hours (app uses 15 min steps)
 
 # Connection settings
-CONNECT_TIMEOUT: Final = 10
-RETRY_COUNT: Final = 3
+CONNECT_TIMEOUT: Final = 10.0
 
 # Baud rate options
 BAUD_RATE_OPTIONS: Final[list[int]] = [9600, 19200, 38400, 57600, 115200]
@@ -52,296 +56,37 @@ DATA_BITS_OPTIONS: Final[list[int]] = [7, 8]
 # Stop bits options
 STOP_BITS_OPTIONS: Final[list[int]] = [1, 2]
 
-# ============================================================================
-# MODBUS REGISTER DEFINITIONS
-# Based on MVHR-BMS Modbus Map from Vent-Axia
-# ============================================================================
+# Re-exported from the device library so the platforms have one import.
+from .library.const import (  # noqa: E402
+    MANUFACTURER,
+    MODE_NAMES,
+    MODEL,
+    VENTILATION_MODES,
+)
 
-# Input Registers (Function Code 4) - Read Only
-# Address is 0-based (register number - 30001)
-INPUT_REGISTERS: Final[dict] = {
-    # System Status & Timers (30001-30010)
-    "run_time": {
-        "address": 0,  # Register 30001
-        "data_type": "uint16",
-        "unit": "d",
-        "name": "Run Time",
-        "icon": "mdi:timer",
-    },
-    "service_timer": {
-        "address": 1,  # Register 30002
-        "data_type": "uint16",
-        "unit": "months",
-        "name": "Service Timer",
-        "icon": "mdi:wrench-clock",
-    },
-    "filter_timer": {
-        "address": 2,  # Register 30003
-        "data_type": "uint16",
-        "unit": "months",
-        "name": "Filter Timer",
-        "icon": "mdi:air-filter",
-    },
-    "faults": {
-        "address": 3,  # Register 30004-30005 (32-bit)
-        "data_type": "uint32",
-        "count": 2,
-        "name": "Faults",
-        "icon": "mdi:alert-circle",
-    },
-    "warnings": {
-        "address": 5,  # Register 30006-30007 (32-bit)
-        "data_type": "uint32",
-        "count": 2,
-        "name": "Warnings",
-        "icon": "mdi:alert",
-    },
-    "notifications": {
-        "address": 7,  # Register 30008-30009 (32-bit)
-        "data_type": "uint32",
-        "count": 2,
-        "name": "Notifications",
-        "icon": "mdi:bell",
-    },
-    "power": {
-        "address": 9,  # Register 30010
-        "data_type": "uint16",
-        "unit": "W",
-        "name": "Power",
-        "device_class": "power",
-    },
-    # Fan RPM (30014-30016)
-    "supply_fan_rpm": {
-        "address": 13,  # Register 30014
-        "data_type": "uint16",
-        "unit": "rpm",
-        "name": "Supply Fan RPM",
-        "icon": "mdi:fan",
-    },
-    "extract_fan_rpm": {
-        "address": 15,  # Register 30016
-        "data_type": "uint16",
-        "unit": "rpm",
-        "name": "Extract Fan RPM",
-        "icon": "mdi:fan",
-    },
-    # Binary Status Flags (30020-30024)
-    "attention_led": {
-        "address": 19,  # Register 30020
-        "data_type": "bool",
-        "name": "Attention LED",
-        "device_class": "problem",
-    },
-    "cooling_enable": {
-        "address": 20,  # Register 30021
-        "data_type": "bool",
-        "name": "Cooling Enable",
-        "icon": "mdi:snowflake",
-    },
-    "preheater_enable": {
-        "address": 21,  # Register 30022
-        "data_type": "bool",
-        "name": "Preheater Enable",
-        "icon": "mdi:heating-coil",
-    },
-    "controlled_cooling": {
-        "address": 22,  # Register 30023
-        "data_type": "bool",
-        "name": "Controlled Cooling",
-        "icon": "mdi:snowflake-thermometer",
-    },
-    "controlled_heating": {
-        "address": 23,  # Register 30024
-        "data_type": "bool",
-        "name": "Controlled Heating",
-        "icon": "mdi:fire",
-    },
-    # Intake Duct T1 (30100-30102)
-    "intake_temp": {
-        "address": 99,  # Register 30100
-        "data_type": "int16",
-        "scale": 0.1,
-        "unit": "°C",
-        "name": "Intake Temperature",
-        "device_class": "temperature",
-    },
-    "intake_humidity": {
-        "address": 100,  # Register 30101
-        "data_type": "uint16",
-        "unit": "%",
-        "name": "Intake Humidity",
-        "device_class": "humidity",
-    },
-    "intake_co2": {
-        "address": 101,  # Register 30102
-        "data_type": "uint16",
-        "unit": "ppm",
-        "name": "Intake CO2",
-        "device_class": "carbon_dioxide",
-    },
-    # Supply Duct T2 (30110)
-    "supply_temp": {
-        "address": 109,  # Register 30110
-        "data_type": "int16",
-        "scale": 0.1,
-        "unit": "°C",
-        "name": "Supply Temperature",
-        "device_class": "temperature",
-    },
-    # Extract Duct T3 (30120-30122)
-    "extract_temp": {
-        "address": 119,  # Register 30120
-        "data_type": "int16",
-        "scale": 0.1,
-        "unit": "°C",
-        "name": "Extract Temperature",
-        "device_class": "temperature",
-    },
-    "extract_humidity": {
-        "address": 120,  # Register 30121
-        "data_type": "uint16",
-        "unit": "%",
-        "name": "Extract Humidity",
-        "device_class": "humidity",
-    },
-    "extract_co2": {
-        "address": 121,  # Register 30122
-        "data_type": "uint16",
-        "unit": "ppm",
-        "name": "Extract CO2",
-        "device_class": "carbon_dioxide",
-    },
-    # Exhaust Duct T4 (30130)
-    "exhaust_temp": {
-        "address": 129,  # Register 30130
-        "data_type": "int16",
-        "scale": 0.1,
-        "unit": "°C",
-        "name": "Exhaust Temperature",
-        "device_class": "temperature",
-    },
-}
-
-# Holding Registers (Function Code 3/6/16) - Read/Write
-# Address is 0-based (register number - 40001)
-HOLDING_REGISTERS: Final[dict] = {
-    # User Override (40030)
-    # Format: MSB=preset (0-4), LSB=minutes duration
-    "user_override": {
-        "address": 29,  # Register 40030
-        "data_type": "uint16",
-        "name": "User Override",
-    },
-    # Virtual Inputs (40001-40010) - for future use
-    "virtual_input_1": {"address": 0, "data_type": "uint16"},
-    "virtual_input_2": {"address": 1, "data_type": "uint16"},
-    "virtual_input_3": {"address": 2, "data_type": "uint16"},
-    "virtual_input_4": {"address": 3, "data_type": "uint16"},
-    "virtual_input_5": {"address": 4, "data_type": "uint16"},
-    "virtual_input_6": {"address": 5, "data_type": "uint16"},
-    "virtual_input_7": {"address": 6, "data_type": "uint16"},
-    "virtual_input_8": {"address": 7, "data_type": "uint16"},
-    "virtual_input_9": {"address": 8, "data_type": "uint16"},
-    "virtual_input_10": {"address": 9, "data_type": "uint16"},
-}
-
-# ============================================================================
-# VENTILATION MODE MAPPING
-# ============================================================================
-# Register 40030 format: MSB=preset (0-4), LSB=minutes
-# Mode values for MSB:
-#   0 = Auto
-#   1 = Low
-#   2 = Medium
-#   3 = High
-#   4 = Boost
-
-VENTILATION_MODES: Final[dict[str, int]] = {
-    "Auto": 0,
-    "Low": 1,
-    "Medium": 2,
-    "High": 3,
-    "Boost": 4,
-}
-
-# Reverse mapping for reading current mode
-MODE_NAMES: Final[dict[int, str]] = {v: k for k, v in VENTILATION_MODES.items()}
-
-# Common mode values for reference:
-# Auto indefinitely:        0 (0x0000)
-# Low for 30 min:          286 (0x011E)
-# Low for 60 min:          316 (0x013C)
-# Medium for 60 min:       572 (0x023C)
-# Medium for 120 min:      632 (0x0278)
-# High for 30 min:         798 (0x031E)
-# High for 60 min:         828 (0x033C)
-# Boost for 15 min:       1039 (0x040F)
-# Boost for 30 min:       1054 (0x041E)
-
-# ============================================================================
-# DEVICE INFO
-# ============================================================================
-MANUFACTURER: Final = "Ventilair/Vent-Axia"
-MODEL: Final = "HRUC-Plus 3"
-
-# ============================================================================
-# FAULT / WARNING / NOTIFICATION CODE DESCRIPTIONS
-#
-# Taken from the manufacturer's own manuals, which do not cover the same set:
-#   NL = "Installatie en gebruikershandleiding", Comair HRUC-Plus (Dutch)
-#        — has F-8, W-18, W-19, W-20, N-3, N-4, N-5; omits W-8 and W-9
-#   PL = "COMAIR HRUC-Plus instrukcja 01/2024" (Polish)
-#        — has W-8 and W-9; omits the codes listed above
-# Together they cover every code the bitmask decoder can produce.
-#
-# Where the two editions disagree, the disagreement is noted rather than
-# silently resolved.
-# ============================================================================
-FAULT_DESCRIPTIONS: Final[dict[str, str]] = {
-    # NL calls F-1 the supply thermistor, PL the inlet thermistor.
-    "F-1": "Supply air thermistor",
-    "F-2": "Extract air thermistor",
-    "F-3": "Supply fan",
-    "F-4": "Extract fan",
-    "F-8": "Supply air too cold",
-    "F-32": "HMI communication lost",
-}
-
-WARNING_DESCRIPTIONS: Final[dict[str, str]] = {
-    "W-1": "Supply air temperature",
-    # NL calls W-2 the exhaust temperature, PL the extract temperature.
-    "W-2": "Exhaust air temperature",
-    "W-3": "Preheated air temperature",
-    "W-4": "Intake air humidity",
-    "W-5": "Extract air humidity",
-    "W-6": "Supply air flow",
-    "W-7": "Extract air flow",
-    "W-8": "Left filter sensor",
-    "W-9": "Right filter sensor",
-    "W-10": "System overpressure",
-    "W-11": "Preheater activated",
-    "W-12": "Filter cleaning or replacement overdue",
-    "W-13": "Service interval overdue",
-    "W-14": "Lost connection to sensors or controllers",
-    "W-15": "BMS offline",
-    "W-18": "Bypass or heat exchanger efficiency",
-    "W-19": "Preheater IO offline",
-    "W-20": "Cooling unit offline",
-}
-
-NOTIFICATION_DESCRIPTIONS: Final[dict[str, str]] = {
-    "N-1": "Filter cleaning or replacement due soon",
-    "N-2": "Service due soon",
-    "N-3": "Device offline",
-    "N-4": "Cooling suspended",
-    "N-5": "Cooling insufficient",
-}
-
-# How each warning clears, per the Dutch manual:
-#   W-1..W-7, W-10, W-11, W-20 — clear once the unit recovers and is power cycled
-#   W-12, W-13               — clear once the filter/service values are reset
-CODE_DESCRIPTIONS: Final[dict[str, str]] = {
-    **FAULT_DESCRIPTIONS,
-    **WARNING_DESCRIPTIONS,
-    **NOTIFICATION_DESCRIPTIONS,
-}
+__all__ = [
+    "BAUD_RATE_OPTIONS",
+    "CONF_BAUD_RATE",
+    "CONF_DATA_BITS",
+    "CONF_PARITY",
+    "CONF_SLAVE_ID",
+    "CONF_STOP_BITS",
+    "CONNECT_TIMEOUT",
+    "DATA_BITS_OPTIONS",
+    "DEFAULT_BAUD_RATE",
+    "DEFAULT_DATA_BITS",
+    "DEFAULT_OVERRIDE_DURATION",
+    "DEFAULT_PARITY",
+    "DEFAULT_PORT",
+    "DEFAULT_SCAN_INTERVAL",
+    "DEFAULT_SLAVE_ID",
+    "DEFAULT_STOP_BITS",
+    "DOMAIN",
+    "MANUFACTURER",
+    "MODE_NAMES",
+    "MODEL",
+    "PARITY_OPTIONS",
+    "PLATFORMS",
+    "STOP_BITS_OPTIONS",
+    "VENTILATION_MODES",
+]

@@ -1,4 +1,4 @@
-"""Sensor platform for ComAir HRUC-Plus Modbus integration."""
+"""Sensor platform for the ComAir HRUC-Plus Modbus integration."""
 from __future__ import annotations
 
 import time
@@ -12,8 +12,8 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
-    EntityCategory,
     PERCENTAGE,
+    EntityCategory,
     UnitOfEnergy,
     UnitOfPower,
     UnitOfTemperature,
@@ -35,55 +35,49 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import ComairModbusConfigEntry
 from .coordinator import ComairModbusCoordinator
+from .library import ComairHruC
 
 
 @dataclass(frozen=True, kw_only=True)
 class ComairSensorEntityDescription(SensorEntityDescription):
-    """Describes ComAir sensor entity."""
+    """Describes a ComAir sensor backed by a device attribute."""
 
-    value_fn: Callable[[dict], float | int | str | None]
-    # Optional extra attributes, e.g. the meaning of each active fault code.
-    attrs_fn: Callable[[dict], dict | None] | None = None
+    value_fn: Callable[[ComairHruC], float | int | str | None]
+    #: Sub-system this value comes from. The entity goes unavailable when
+    #: that sub-system failed, while the rest of the unit carries on.
+    report_name: str
+    #: Optional extra attributes, e.g. the meaning of each active fault code.
+    attrs_fn: Callable[[ComairHruC], dict | None] | None = None
 
 
-def _code_attrs(codes_key: str, details_key: str) -> Callable[[dict], dict | None]:
+def _code_attrs(kind: str) -> Callable[[ComairHruC], dict | None]:
     """Expose active codes and their meanings as attributes.
 
     The state stays the compact code list ("W-12, W-15") so automations and
-    history keep working; the human-readable meaning goes in attributes.
+    history keep working; the human-readable meaning and the raw 32-bit mask
+    go in attributes.
     """
 
-    def _attrs(data: dict) -> dict | None:
-        codes = data.get(codes_key)
+    # The property on the device renders the codes for display; the raw
+    # register word lives on the status component.
+    raw_field = {"fault": "faults", "warning": "warnings", "notification": "notifications"}[kind]
+
+    def _attrs(device: ComairHruC) -> dict | None:
+        codes = getattr(device, f"{kind}_codes")
         if codes is None:
             return None
-        return {"codes": codes, "descriptions": data.get(details_key, [])}
+        return {
+            "codes": codes,
+            "descriptions": getattr(device, f"{kind}_details"),
+            "raw_mask": getattr(device.status, raw_field),
+        }
 
     return _attrs
 
 
-def _calc_heat_recovery(data: dict) -> float | None:
-    """Calculate heat recovery efficiency: (supply - intake) / (extract - intake) * 100.
-
-    Returns None when summer bypass is active (heat exchanger bypassed).
-    """
-    if data.get("bypass_active"):
-        return None
-    intake = data.get("intake_temp")
-    supply = data.get("supply_temp")
-    extract = data.get("extract_temp")
-    if intake is None or supply is None or extract is None:
-        return None
-    diff = extract - intake
-    if diff <= 0:
-        return None
-    efficiency = ((supply - intake) / diff) * 100
-    return round(min(max(efficiency, 0), 100), 0)
-
-
 SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
     # =========================================================================
-    # Temperature Sensors
+    # Duct temperatures
     # =========================================================================
     ComairSensorEntityDescription(
         key="intake_temp",
@@ -93,7 +87,8 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
-        value_fn=lambda data: data.get("intake_temp"),
+        report_name="airflow",
+        value_fn=lambda d: d.airflow.intake_temp,
     ),
     ComairSensorEntityDescription(
         key="supply_temp",
@@ -103,7 +98,8 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
-        value_fn=lambda data: data.get("supply_temp"),
+        report_name="airflow",
+        value_fn=lambda d: d.airflow.supply_temp,
     ),
     ComairSensorEntityDescription(
         key="extract_temp",
@@ -113,7 +109,8 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
-        value_fn=lambda data: data.get("extract_temp"),
+        report_name="airflow",
+        value_fn=lambda d: d.airflow.extract_temp,
     ),
     ComairSensorEntityDescription(
         key="exhaust_temp",
@@ -123,10 +120,11 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
-        value_fn=lambda data: data.get("exhaust_temp"),
+        report_name="airflow",
+        value_fn=lambda d: d.airflow.exhaust_temp,
     ),
     # =========================================================================
-    # Humidity Sensors
+    # Humidity and CO2
     # =========================================================================
     ComairSensorEntityDescription(
         key="intake_humidity",
@@ -135,7 +133,8 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.HUMIDITY,
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("intake_humidity"),
+        report_name="airflow",
+        value_fn=lambda d: d.airflow.intake_humidity,
     ),
     ComairSensorEntityDescription(
         key="extract_humidity",
@@ -144,11 +143,9 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.HUMIDITY,
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("extract_humidity"),
+        report_name="airflow",
+        value_fn=lambda d: d.airflow.extract_humidity,
     ),
-    # =========================================================================
-    # CO2 Sensors
-    # =========================================================================
     ComairSensorEntityDescription(
         key="intake_co2",
         translation_key="intake_co2",
@@ -156,7 +153,8 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.CO2,
         native_unit_of_measurement=PARTS_PER_MILLION,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("intake_co2"),
+        report_name="airflow",
+        value_fn=lambda d: d.airflow.intake_co2,
     ),
     ComairSensorEntityDescription(
         key="extract_co2",
@@ -165,10 +163,11 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.CO2,
         native_unit_of_measurement=PARTS_PER_MILLION,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("extract_co2"),
+        report_name="airflow",
+        value_fn=lambda d: d.airflow.extract_co2,
     ),
     # =========================================================================
-    # Fan RPM Sensors
+    # Fans
     # =========================================================================
     ComairSensorEntityDescription(
         key="supply_fan_rpm",
@@ -178,7 +177,8 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         native_unit_of_measurement="rpm",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
-        value_fn=lambda data: data.get("supply_fan_rpm"),
+        report_name="fans_outputs",
+        value_fn=lambda d: d.fans.supply_rpm,
     ),
     ComairSensorEntityDescription(
         key="extract_fan_rpm",
@@ -188,11 +188,9 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         native_unit_of_measurement="rpm",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
-        value_fn=lambda data: data.get("extract_fan_rpm"),
+        report_name="fans_outputs",
+        value_fn=lambda d: d.fans.extract_rpm,
     ),
-    # =========================================================================
-    # Fan Speed Percentage (calculated from RPM using fan curve)
-    # =========================================================================
     ComairSensorEntityDescription(
         key="supply_fan_pct",
         translation_key="supply_fan_pct",
@@ -201,7 +199,8 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
-        value_fn=lambda data: data.get("supply_fan_pct"),
+        report_name="fans_outputs",
+        value_fn=lambda d: d.supply_fan_pct,
     ),
     ComairSensorEntityDescription(
         key="extract_fan_pct",
@@ -211,10 +210,11 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
-        value_fn=lambda data: data.get("extract_fan_pct"),
+        report_name="fans_outputs",
+        value_fn=lambda d: d.extract_fan_pct,
     ),
     # =========================================================================
-    # Power Sensor
+    # Power and timers
     # =========================================================================
     ComairSensorEntityDescription(
         key="power",
@@ -223,11 +223,9 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.POWER,
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("power"),
+        report_name="status",
+        value_fn=lambda d: d.status.power,
     ),
-    # =========================================================================
-    # Timer Sensors
-    # =========================================================================
     ComairSensorEntityDescription(
         key="run_time",
         translation_key="run_time",
@@ -235,7 +233,8 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         icon="mdi:timer",
         native_unit_of_measurement="d",
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda data: data.get("run_time"),
+        report_name="status",
+        value_fn=lambda d: d.status.run_time,
     ),
     ComairSensorEntityDescription(
         key="service_timer",
@@ -243,7 +242,8 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         name="Service Timer",
         icon="mdi:wrench-clock",
         native_unit_of_measurement="months",
-        value_fn=lambda data: data.get("service_timer"),
+        report_name="status",
+        value_fn=lambda d: d.status.service_timer,
     ),
     ComairSensorEntityDescription(
         key="filter_timer",
@@ -251,11 +251,9 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         name="Filter Timer",
         icon="mdi:air-filter",
         native_unit_of_measurement="months",
-        value_fn=lambda data: data.get("filter_timer"),
+        report_name="status",
+        value_fn=lambda d: d.status.filter_timer,
     ),
-    # =========================================================================
-    # Heat Recovery Efficiency
-    # =========================================================================
     ComairSensorEntityDescription(
         key="heat_recovery_efficiency",
         translation_key="heat_recovery_efficiency",
@@ -264,10 +262,11 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
-        value_fn=lambda data: _calc_heat_recovery(data),
+        report_name="airflow",
+        value_fn=lambda d: d.heat_recovery_efficiency,
     ),
     # =========================================================================
-    # Diagnostic Sensors
+    # Diagnostics
     # =========================================================================
     ComairSensorEntityDescription(
         key="faults",
@@ -275,8 +274,9 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         name="Faults",
         icon="mdi:alert-circle",
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda data: data.get("faults"),
-        attrs_fn=_code_attrs("fault_codes", "fault_details"),
+        report_name="status",
+        value_fn=lambda d: d.faults,
+        attrs_fn=_code_attrs("fault"),
     ),
     ComairSensorEntityDescription(
         key="warnings",
@@ -284,8 +284,9 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         name="Warnings",
         icon="mdi:alert",
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda data: data.get("warnings"),
-        attrs_fn=_code_attrs("warning_codes", "warning_details"),
+        report_name="status",
+        value_fn=lambda d: d.warnings,
+        attrs_fn=_code_attrs("warning"),
     ),
     ComairSensorEntityDescription(
         key="notifications",
@@ -293,14 +294,25 @@ SENSOR_DESCRIPTIONS: tuple[ComairSensorEntityDescription, ...] = (
         name="Notifications",
         icon="mdi:bell",
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda data: data.get("notifications"),
-        attrs_fn=_code_attrs("notification_codes", "notification_details"),
+        report_name="status",
+        value_fn=lambda d: d.notifications,
+        attrs_fn=_code_attrs("notification"),
+    ),
+    ComairSensorEntityDescription(
+        key="bypass_state",
+        translation_key="bypass_state",
+        name="Damper Position",
+        icon="mdi:air-conditioner",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        report_name="status",
+        value_fn=lambda d: d.bypass_state_name,
+        attrs_fn=lambda d: {"raw": d.bypass_state},
     ),
 )
 
 
 class ComairSensor(CoordinatorEntity[ComairModbusCoordinator], SensorEntity):
-    """Representation of a ComAir sensor."""
+    """A ComAir sensor reading one attribute off the device."""
 
     _attr_has_entity_name = True
     entity_description: ComairSensorEntityDescription
@@ -310,26 +322,96 @@ class ComairSensor(CoordinatorEntity[ComairModbusCoordinator], SensorEntity):
         coordinator: ComairModbusCoordinator,
         description: ComairSensorEntityDescription,
         device_info,
+        unique_key: str | None = None,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self.entity_description = description
-        self._attr_unique_id = f"{coordinator.slave_id}_{description.key}"
+        key = unique_key or description.key
+        self._attr_unique_id = f"{coordinator.slave_id}_{key}"
         self._attr_device_info = device_info
+
+    @property
+    def available(self) -> bool:
+        """Available while the sub-system this value comes from answers."""
+        return self.coordinator.available(self.entity_description.report_name)
 
     @property
     def native_value(self) -> float | int | str | None:
         """Return the sensor value."""
-        if self.coordinator.data is None:
-            return None
-        return self.entity_description.value_fn(self.coordinator.data)
+        return self.entity_description.value_fn(self.coordinator.device)
 
     @property
     def extra_state_attributes(self) -> dict | None:
         """Return extra attributes, for sensors that define them."""
-        if self.entity_description.attrs_fn is None or self.coordinator.data is None:
+        if self.entity_description.attrs_fn is None:
             return None
-        return self.entity_description.attrs_fn(self.coordinator.data)
+        return self.entity_description.attrs_fn(self.coordinator.device)
+
+
+class ComairZoneSensor(ComairSensor):
+    """A zone measurement, one entity per measurement the unit reports.
+
+    Entities are created only for measurements that answered during setup,
+    so a unit with two zones wired up does not gain 32 entities that can
+    never report. Once created an entity stays in the registry and goes
+    unavailable rather than disappearing if its register later reads the
+    unavailable sentinel.
+    """
+
+    def __init__(
+        self,
+        coordinator: ComairModbusCoordinator,
+        device_info,
+        zone_index: int,
+        field: str,
+    ) -> None:
+        """Initialize a zone sensor."""
+        description = ZONE_SENSOR_DESCRIPTIONS[field]
+        super().__init__(
+            coordinator,
+            description,
+            device_info,
+            unique_key=f"zone_{zone_index}_{field}",
+        )
+        self._zone_index = zone_index
+        self._field = field
+
+    @property
+    def _zone(self):
+        """The zone component this sensor reads."""
+        return self.coordinator.device.zone_components.get(self._zone_index)
+
+    @property
+    def native_value(self) -> float | int | None:
+        """Return the zone measurement."""
+        zone = self._zone
+        return None if zone is None else getattr(zone, self._field)
+
+
+ZONE_SENSOR_DESCRIPTIONS: dict[str, ComairSensorEntityDescription] = {
+    "temperature": ComairSensorEntityDescription(
+        key="zone_temperature",
+        translation_key="zone_temperature",
+        name="Zone Temperature",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        report_name="zones",
+        value_fn=lambda d: None,
+    ),
+    "humidity": ComairSensorEntityDescription(
+        key="zone_humidity",
+        translation_key="zone_humidity",
+        name="Zone Humidity",
+        device_class=SensorDeviceClass.HUMIDITY,
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        report_name="zones",
+        value_fn=lambda d: None,
+    ),
+}
 
 
 class ComairEnergySensor(
@@ -358,6 +440,11 @@ class ComairEnergySensor(
         self._last_update: float | None = None
         self._restored: bool = False
 
+    @property
+    def available(self) -> bool:
+        """A long-term statistic holds its value across a gap in the link."""
+        return True
+
     async def async_added_to_hass(self) -> None:
         """Restore last known energy value on HA restart."""
         await super().async_added_to_hass()
@@ -379,13 +466,12 @@ class ComairEnergySensor(
         """Integrate power over time on each coordinator update."""
         now = time.monotonic()
 
-        if self.coordinator.data is not None:
-            power = self.coordinator.data.get("power")
-            if power is not None and self._last_update is not None:
-                elapsed_hours = (now - self._last_update) / 3600.0
-                # Cap at 2x scan interval to prevent spikes after long gaps
-                if 0 < elapsed_hours < (120 / 3600):
-                    self._total_energy += (power / 1000.0) * elapsed_hours
+        power = self.coordinator.device.power
+        if power is not None and self._last_update is not None:
+            elapsed_hours = (now - self._last_update) / 3600.0
+            # Cap at 2x scan interval to prevent spikes after long gaps
+            if 0 < elapsed_hours < (120 / 3600):
+                self._total_energy += (power / 1000.0) * elapsed_hours
 
         self._last_update = now
         super()._handle_coordinator_update()
@@ -406,5 +492,29 @@ async def async_setup_entry(
         for description in SENSOR_DESCRIPTIONS
     ]
     entities.append(ComairEnergySensor(coordinator, device_info))
-
     async_add_entities(entities)
+
+    # Zone entities are added as discovery finds them rather than only while
+    # this platform sets up. Discovery has to happen on a later poll, because
+    # the refresh during setup is kept deliberately cheap to stay inside Home
+    # Assistant's bootstrap window, so at this point the zone set is normally
+    # still unknown. Entities already created are tracked so a later poll
+    # that sees the same zones adds nothing.
+    added: set[int] = set()
+
+    def _add_discovered_zones() -> None:
+        """Create an entity for each zone measurement not yet created."""
+        new: list[SensorEntity] = []
+        for zone_index, fields in coordinator.device.zone_measurements.items():
+            if zone_index in added:
+                continue
+            added.add(zone_index)
+            new.extend(
+                ComairZoneSensor(coordinator, device_info, zone_index, field)
+                for field in fields
+            )
+        if new:
+            async_add_entities(new)
+
+    _add_discovered_zones()
+    entry.async_on_unload(coordinator.async_add_listener(_add_discovered_zones))

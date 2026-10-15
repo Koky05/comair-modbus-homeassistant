@@ -5,10 +5,11 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-from pymodbus.client import AsyncModbusTcpClient
-from pymodbus.framer import FramerType
+
+from modbus_connection import ModbusError
 
 from homeassistant import config_entries
+from homeassistant.components.modbus import async_get_temporary_unit
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_PORT
 
@@ -19,7 +20,6 @@ from .const import (
     CONF_PARITY,
     CONF_SLAVE_ID,
     CONF_STOP_BITS,
-    CONNECT_TIMEOUT,
     DATA_BITS_OPTIONS,
     DEFAULT_BAUD_RATE,
     DEFAULT_DATA_BITS,
@@ -31,6 +31,7 @@ from .const import (
     PARITY_OPTIONS,
     STOP_BITS_OPTIONS,
 )
+from .helpers import create_modbus_params
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -70,56 +71,30 @@ class ComairModbusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            host = user_input[CONF_HOST]
-            port = user_input.get(CONF_PORT, DEFAULT_PORT)
-            slave_id = user_input.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
-
-            # Test connection
-            client = AsyncModbusTcpClient(
-                host=host,
-                port=port,
-                framer=FramerType.RTU,
-                timeout=CONNECT_TIMEOUT,
-            )
-
+            # Probe over a temporary unit rather than opening our own socket,
+            # so the check shares the connection the entry will use.
             try:
-                connected = await client.connect()
-                if connected:
-                    # Try reading a register to verify communication
-                    result = await client.read_input_registers(
-                        address=0, count=1, device_id=slave_id
-                    )
+                async with async_get_temporary_unit(
+                    self.hass, create_modbus_params(user_input), user_input[CONF_SLAVE_ID]
+                ) as unit:
+                    await unit.read_input_registers(0, 1)
+            except ModbusError as err:
+                _LOGGER.error(
+                    "Cannot communicate with %s (Slave ID: %d): %s",
+                    user_input[CONF_HOST],
+                    user_input[CONF_SLAVE_ID],
+                    err,
+                )
+                errors["base"] = "cannot_communicate"
+            else:
+                unique_id = f"{user_input[CONF_HOST]}_{user_input[CONF_SLAVE_ID]}"
+                await self.async_set_unique_id(unique_id)
+                self._abort_if_unique_id_configured()
 
-                    if not result.isError():
-                        # Success - create entry
-                        unique_id = f"{host}_{slave_id}"
-                        await self.async_set_unique_id(unique_id)
-                        self._abort_if_unique_id_configured()
-
-                        return self.async_create_entry(
-                            title=f"ComAir HRUC ({host})",
-                            data=user_input,
-                        )
-                    else:
-                        _LOGGER.error(
-                            "Modbus communication error: %s (Slave ID: %d)",
-                            result,
-                            slave_id,
-                        )
-                        errors["base"] = "cannot_communicate"
-                else:
-                    _LOGGER.error("Cannot connect to %s:%d", host, port)
-                    errors["base"] = "cannot_connect"
-
-            except Exception as err:
-                _LOGGER.exception("Error connecting to %s:%d - %s", host, port, err)
-                errors["base"] = "unknown"
-            finally:
-                try:
-                    if client.connected:
-                        client.close()
-                except Exception:
-                    pass
+                return self.async_create_entry(
+                    title=f"ComAir HRUC ({user_input[CONF_HOST]})",
+                    data=user_input,
+                )
 
         return self.async_show_form(
             step_id="user",

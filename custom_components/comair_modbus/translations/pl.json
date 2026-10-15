@@ -55,7 +55,10 @@
       "filter_timer": { "name": "Czas do czyszczenia filtra" },
       "faults": { "name": "Usterki" },
       "warnings": { "name": "Ostrzeżenia" },
-      "notifications": { "name": "Powiadomienia" }
+      "notifications": { "name": "Powiadomienia" },
+      "bypass_state": { "name": "Pozycja przepustnicy" },
+      "zone_temperature": { "name": "Temperatura strefy" },
+      "zone_humidity": { "name": "Wilgotność strefy" }
     },
     "binary_sensor": {
       "attention_led": { "name": "Dioda ostrzegawcza" },

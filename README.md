@@ -1,65 +1,67 @@
 # ComAir HRUC-Plus Modbus Integration for Home Assistant
 
 [![HACS Compatible](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1.0+-blue.svg)](https://www.home-assistant.io/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.9+-blue.svg)](https://www.home-assistant.io/)
 
 Custom Home Assistant integration for **ComAir HRUC-Plus 3** / **Vent-Axia Sentinel Kinetic Advance** MVHR ventilation units via Modbus RTU over TCP.
 
 ## Features
 
-- **40 Entities**: Comprehensive sensor and control coverage
 - **Config Flow UI**: Add via Settings → Integrations (no YAML editing)
-- **BMS Settings**: Configuration matches Vent-Axia Connect app
-- **Climate Control**: HVAC-like entity with preset modes
+- **Shared Modbus connection**: Talks over the connection Home Assistant's `modbus`
+  integration shares between integrations, instead of holding a private socket to the
+  gateway. Two integrations on one bus now serialise instead of fighting over it.
+- **Zone measurements**: Temperature and humidity for the zones the unit is actually
+  configured for, discovered rather than assumed.
+- **Damper position**: The unit's own bypass state, read directly
+- **Climate Control**: HVAC-like entity with preset modes, including maximum airflow
 - **Energy Tracking**: Integrated energy sensor for HA Energy dashboard
 - **Heat Recovery**: Calculated efficiency sensor
+- **Diagnostics**: Download the raw register map, which replays as a test fixture
+- **Device library**: The register map and device logic sit in a `library/` package that
+  imports nothing from Home Assistant, so it can be read and tested on its own
 - **Translations**: English, Slovak, Czech, Polish — terminology taken from the manufacturer's own manuals (Comair HRUC-Plus NL and PL editions)
 
 ## Entities
 
 | Platform | Count | Entities |
 |----------|-------|----------|
-| sensor | 20 | Temperatures (4), Humidity (2), CO2 (2), Fan RPM (2), Fan Speed % (2), Power, Energy, Heat Recovery, Timers (3), Diagnostics (3) |
+| sensor | 21+ | Temperatures (4), Humidity (2), CO2 (2), Fan RPM (2), Fan Speed % (2), Power, Energy, Heat Recovery, Timers (3), Damper Position, Faults/Warnings/Notifications, Zone Temperature and Humidity (one per configured zone) |
 | binary_sensor | 6 | Attention LED, Cooling Enable, Preheater Enable, Controlled Cooling/Heating, Summer Bypass |
-| switch | 10 | Virtual Inputs 1-10 (BMS control mapping) |
+| switch | 10 | Virtual Inputs 1-10 (BMS control mapping) — hidden by default, see below |
 | button | 1 | Sync Clock (write HA time to MVHR) |
-| select | 1 | Ventilation Mode (Auto/Low/Medium/High/Boost) |
+| select | 1 | Ventilation Mode (Auto/Low/Medium/High/Boost/Max) |
 | number | 1 | Mode Duration (15-240 min, step 15) |
 | climate | 1 | Ventilation with preset modes |
 
 ### About the Summer Bypass sensor
 
-The unit publishes no documented summer-bypass flag, so **Summer Bypass** is *inferred* from
-the air temperatures: when the bypass is open, supply tracks intake and exhaust tracks
-extract. When intake and extract are within 3 °C of each other there is not enough signal to
-judge, and the sensor reports `unknown` rather than guessing.
+The unit publishes its damper position on input register 30012, so **Summer Bypass** reads
+it directly instead of inferring it from the air temperatures as earlier versions did.
+Anything other than `0` (Closed) counts as the bypass being engaged, which covers the
+SBP Normal / Evening Fresh / Nighttime Fresh states as well as Anti-frost, Diagnostic,
+Service Mode and BMS Override. **Damper Position** exposes the same register with its
+state named, so a bypass held open by anti-frost is distinguishable from a free-cooling
+bypass.
 
-That inference has now been checked against a unit's own bypass status by a user on a
-different model: when the bypass was genuinely open the sensor read `on`, and when it was
-closed the sensor read `off` or `unknown`. So it is sound, with `unknown` as the honest
-answer in the narrow-spread case rather than a wrong one.
+### About the zone sensors
 
-The manual's own rule ("Zomer bypassmodus") is that the bypass engages only when the
-indoor and outdoor thresholds are both exceeded **and the outdoor temperature is below the
-indoor temperature**, and that it disengages as soon as either threshold is crossed back.
-The sensor uses the necessary half of that: whenever intake is at or above extract the
-damper cannot be open, so it reports a confident `off` instead of `unknown`. The
-thresholds themselves are user-configurable on the unit and not exposed over Modbus, so
-they are not assumed. `unknown` is now limited to the genuinely ambiguous band — outdoor
-cooler than indoor, but by less than 3 °C.
+Zones 0-15 each have a temperature and a humidity register. A zone that is not configured
+does not refuse its registers, it answers the unit's unavailable sentinel, so the
+integration discovers which measurements are live and creates entities only for those —
+rather than adding 32 entities that could never report. A measurement reading `0` counts
+as real. Once created, an entity stays and goes unavailable rather than disappearing if
+its register later reads the sentinel. Zone entities appear shortly after setup, once the
+first poll has run; the poll that runs during setup is kept deliberately short so it fits
+inside Home Assistant's startup window.
 
-The manual also describes bypass modes the bus cannot report: *Off*, *Normal*, *Evening
-cooling* (runs 5 hours, then reverts) and *Night cooling* (runs until the outdoor
-temperature rises again).
+### About the virtual inputs
 
-**There is no register that reports the bypass directly.** Register 30025, listed in the
-official Gen V map only as *"Other output sources… TODO/TBC"*, was tested as a candidate and
-ruled out: it sits permanently at `1` on both an HRUC-Plus 3 VR and a Sentinel Econiq SC
-while the real bypass opens and closes. The relay outputs 30021–30024 (cooling enable,
-preheater enable, controlled cooling/heating) are not the bypass either — they appear to
-drive external heating and cooling equipment and follow temperature.
-
----
+Virtual inputs carry a remote temperature, humidity or CO2 sensor into the unit. Their
+type is fixed in the unit's own BMS setup and cannot be changed over Modbus, so they are
+hidden by default: an integration that offers a switch for something you cannot
+meaningfully toggle from Home Assistant is worse than one that offers nothing. They remain
+available to enable from the entity registry.
 
 ## Required Hardware
 

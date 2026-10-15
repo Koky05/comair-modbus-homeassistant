@@ -1,7 +1,6 @@
 """Climate platform for ComAir HRUC-Plus Modbus integration."""
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from homeassistant.components.climate import (
@@ -15,14 +14,12 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import ComairModbusConfigEntry
-from .const import MODE_NAMES, VENTILATION_MODES
+from .const import VENTILATION_MODES
 from .coordinator import ComairModbusCoordinator
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class ComairClimate(CoordinatorEntity[ComairModbusCoordinator], ClimateEntity):
-    """Climate entity for ComAir ventilation unit."""
+    """Climate entity for the ComAir ventilation unit."""
 
     _attr_has_entity_name = True
     _attr_translation_key = "ventilation"
@@ -44,8 +41,8 @@ class ComairClimate(CoordinatorEntity[ComairModbusCoordinator], ClimateEntity):
 
     @property
     def available(self) -> bool:
-        """Return if entity is available."""
-        return self.coordinator.data is not None and super().available
+        """Available while the unit and the airflow block both answer."""
+        return self.coordinator.available("airflow")
 
     @property
     def hvac_mode(self) -> HVACMode:
@@ -55,72 +52,53 @@ class ComairClimate(CoordinatorEntity[ComairModbusCoordinator], ClimateEntity):
     @property
     def current_temperature(self) -> float | None:
         """Return the current temperature (extract/indoor air)."""
-        if self.coordinator.data is None:
-            return None
-        return self.coordinator.data.get("extract_temp")
+        return self.coordinator.device.airflow.extract_temp
 
     @property
     def current_humidity(self) -> float | None:
         """Return the current humidity (extract/indoor air)."""
-        if self.coordinator.data is None:
-            return None
-        return self.coordinator.data.get("extract_humidity")
+        return self.coordinator.device.airflow.extract_humidity
 
     @property
     def preset_mode(self) -> str | None:
         """Return current preset mode."""
-        if self.coordinator.data is None:
-            return None
-        mode = self.coordinator.data.get("current_mode", 0)
-        return MODE_NAMES.get(mode, "Auto")
+        return self.coordinator.device.current_mode_name or "Auto"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra state attributes."""
-        if self.coordinator.data is None:
-            return {}
+        device = self.coordinator.device
+        airflow = device.airflow
 
-        attrs = {}
+        attrs: dict[str, Any] = {}
 
-        # Add intake temperature as attribute
-        intake_temp = self.coordinator.data.get("intake_temp")
-        if intake_temp is not None:
-            attrs["intake_temperature"] = intake_temp
+        if (intake := airflow.intake_temp) is not None:
+            attrs["intake_temperature"] = intake
+        if (supply := airflow.supply_temp) is not None:
+            attrs["supply_temperature"] = supply
+        if (exhaust := airflow.exhaust_temp) is not None:
+            attrs["exhaust_temperature"] = exhaust
 
-        # Add supply temperature as attribute
-        supply_temp = self.coordinator.data.get("supply_temp")
-        if supply_temp is not None:
-            attrs["supply_temperature"] = supply_temp
+        duration = device.mode_duration or 0
+        attrs["mode_duration_minutes"] = duration
+        attrs["mode_duration_text"] = "Indefinite" if duration == 0 else f"{duration} minutes"
 
-        # Add exhaust temperature as attribute
-        exhaust_temp = self.coordinator.data.get("exhaust_temp")
-        if exhaust_temp is not None:
-            attrs["exhaust_temperature"] = exhaust_temp
-
-        # Add mode duration
-        mode_duration = self.coordinator.data.get("mode_duration", 0)
-        attrs["mode_duration_minutes"] = mode_duration
-        if mode_duration == 0:
-            attrs["mode_duration_text"] = "Indefinite"
-        else:
-            attrs["mode_duration_text"] = f"{mode_duration} minutes"
-
-        # Add power consumption
-        power = self.coordinator.data.get("power")
-        if power is not None:
+        if (power := device.power) is not None:
             attrs["power_consumption"] = power
+
+        if (damper := device.bypass_state_name) is not None:
+            attrs["damper_position"] = damper
 
         return attrs
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set HVAC mode — unit is always running, only FAN_ONLY is valid."""
-        _LOGGER.debug("HVAC mode set to FAN_ONLY")
+        return None
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set preset mode."""
         mode = VENTILATION_MODES.get(preset_mode, 0)
-        _LOGGER.debug("Setting preset mode to %s (mode=%d)", preset_mode, mode)
-        await self.coordinator.async_write_user_override(mode)
+        await self.coordinator.async_set_mode(mode)
 
 
 async def async_setup_entry(
@@ -128,7 +106,7 @@ async def async_setup_entry(
     entry: ComairModbusConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up ComAir climate entity from a config entry."""
+    """Set up the ComAir climate entity from a config entry."""
     runtime_data = entry.runtime_data
     coordinator = runtime_data.coordinator
     device_info = runtime_data.device_info

@@ -19,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 class ComairTimeSyncButton(
     CoordinatorEntity[ComairModbusCoordinator], ButtonEntity
 ):
-    """Button to sync MVHR clock with HA time."""
+    """Button to sync the MVHR clock with Home Assistant time."""
 
     _attr_has_entity_name = True
     _attr_translation_key = "time_sync"
@@ -37,36 +37,12 @@ class ComairTimeSyncButton(
         self._attr_device_info = device_info
 
     async def async_press(self) -> None:
-        """Sync MVHR clock to current HA time."""
+        """Sync the MVHR clock to current Home Assistant time."""
         now = dt_util.now()
-
-        # Register 40040 (address 39): Year (uint16)
-        # Register 40041 (address 40): MSB=month, LSB=day
-        # Register 40042 (address 41): MSB=hour, LSB=minute
-        year = now.year
-        month_day = (now.month << 8) | now.day
-        hour_minute = (now.hour << 8) | now.minute
-
-        try:
-            # Write all three registers
-            for addr, value, desc in [
-                (39, year, "year"),
-                (40, month_day, f"month={now.month} day={now.day}"),
-                (41, hour_minute, f"hour={now.hour} minute={now.minute}"),
-            ]:
-                result = await self.coordinator.client.write_register(
-                    address=addr, value=value, device_id=self.coordinator.slave_id
-                )
-                if result.isError():
-                    _LOGGER.error("Failed to write %s: %s", desc, result)
-                    return
-
-            _LOGGER.info(
-                "MVHR clock synced to %s",
-                now.strftime("%Y-%m-%d %H:%M"),
-            )
-        except Exception as err:
-            _LOGGER.exception("Error syncing MVHR clock: %s", err)
+        if await self.coordinator.async_sync_clock(now):
+            _LOGGER.info("MVHR clock synced to %s", now.strftime("%Y-%m-%d %H:%M"))
+        else:
+            _LOGGER.error("Could not sync the MVHR clock")
 
 
 async def async_setup_entry(

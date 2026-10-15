@@ -4,13 +4,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 
-from pymodbus.client import AsyncModbusTcpClient
-from pymodbus.framer import FramerType
+from modbus_connection import ModbusUnit
 
+from homeassistant.components.modbus import async_get_unit
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.device_registry import DeviceInfo
 
 from .const import (
@@ -32,6 +31,7 @@ from .const import (
     PLATFORMS,
 )
 from .coordinator import ComairModbusCoordinator
+from .helpers import create_modbus_params
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ _LOGGER = logging.getLogger(__name__)
 class ComairModbusRuntimeData:
     """Runtime data for ComAir Modbus integration."""
 
-    client: AsyncModbusTcpClient
+    unit: ModbusUnit
     coordinator: ComairModbusCoordinator
     device_info: DeviceInfo
 
@@ -56,7 +56,9 @@ async def async_setup_entry(
     port = entry.data.get(CONF_PORT, DEFAULT_PORT)
     slave_id = entry.data.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
 
-    # Store serial settings for reference (used by EW11A gateway)
+    # Kept in the log for reference: these describe the RS-485 line behind the
+    # EW11A, which the gateway terminates. Only the baud rate reaches the
+    # client, as RTU frame spacing.
     baud_rate = entry.data.get(CONF_BAUD_RATE, DEFAULT_BAUD_RATE)
     data_bits = entry.data.get(CONF_DATA_BITS, DEFAULT_DATA_BITS)
     parity = entry.data.get(CONF_PARITY, DEFAULT_PARITY)
@@ -73,33 +75,13 @@ async def async_setup_entry(
         stop_bits,
     )
 
-    # Create Modbus client for RTU over TCP
-    client = AsyncModbusTcpClient(
-        host=host,
-        port=port,
-        framer=FramerType.RTU,  # RTU framing over TCP
-        timeout=CONNECT_TIMEOUT,
-    )
+    # Ask `modbus` for a unit on the connection it shares between consumers,
+    # instead of opening our own socket. Asking performs no I/O, so a powered
+    # down unit does not block setup: the coordinator's first refresh opens
+    # the link and turns an unreachable unit into ConfigEntryNotReady.
+    unit = async_get_unit(hass, entry, create_modbus_params(entry.data), slave_id)
+    unit.require_timeout(CONNECT_TIMEOUT)
 
-    # Try to connect
-    if not await client.connect():
-        raise ConfigEntryNotReady(f"Cannot connect to ComAir gateway at {host}:{port}")
-
-    # Verify communication by reading a register
-    try:
-        result = await client.read_input_registers(
-            address=0, count=1, device_id=slave_id
-        )
-        if result.isError():
-            client.close()
-            raise ConfigEntryNotReady(
-                f"Cannot communicate with ComAir unit (Slave ID: {slave_id})"
-            )
-    except Exception as err:
-        client.close()
-        raise ConfigEntryNotReady(f"Error communicating with ComAir: {err}") from err
-
-    # Create device info
     device_info = DeviceInfo(
         identifiers={(DOMAIN, f"{host}_{slave_id}")},
         name=f"ComAir HRUC-Plus ({host})",
@@ -108,24 +90,19 @@ async def async_setup_entry(
         configuration_url=f"http://{host}",
     )
 
-    # Create coordinator
-    coordinator = ComairModbusCoordinator(hass, entry, client, slave_id)
+    coordinator = ComairModbusCoordinator(hass, entry, unit, slave_id)
 
-    # Fetch initial data
-    try:
-        await coordinator.async_config_entry_first_refresh()
-    except ConfigEntryNotReady:
-        client.close()
-        raise
+    # The first refresh also runs the device's one-time setup, which probes
+    # which zone measurements the unit is configured for, and doubles as the
+    # connection test. There is no separate probe to keep in step with it.
+    await coordinator.async_config_entry_first_refresh()
 
-    # Store runtime data
     entry.runtime_data = ComairModbusRuntimeData(
-        client=client,
+        unit=unit,
         coordinator=coordinator,
         device_info=device_info,
     )
 
-    # Forward to platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     _LOGGER.info("ComAir Modbus setup complete for %s", host)
@@ -136,11 +113,6 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: ComairModbusConfigEntry
 ) -> bool:
     """Unload a config entry."""
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-
-    if unload_ok:
-        runtime_data: ComairModbusRuntimeData = entry.runtime_data
-        runtime_data.client.close()
-        _LOGGER.info("ComAir Modbus unloaded for %s", entry.data[CONF_HOST])
-
-    return unload_ok
+    # No teardown to register: the connection belongs to `modbus`, which closes
+    # it when the last entry holding a unit on it unloads.
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
