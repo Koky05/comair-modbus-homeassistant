@@ -17,6 +17,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .const import DEFAULT_OVERRIDE_DURATION, DEFAULT_SCAN_INTERVAL
 from .library import ComairHruC
+from .library.const import AIRFLOW_PRESETS, MODE_AUTO
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -105,11 +106,22 @@ class ComairModbusCoordinator(DataUpdateCoordinator[UpdateReport]):
     # Writes, routed through the device so entities stay thin
     # ------------------------------------------------------------------
 
-    async def async_set_mode(self, mode: int, duration: int | None = None) -> bool:
-        """Set the airflow preset, using the slider duration by default."""
+    async def async_set_mode(self, mode: str, duration: int | None = None) -> bool:
+        """Set the airflow option by name, using the slider duration.
+
+        "Auto" cancels any override rather than selecting a preset: on this
+        unit preset 0 is OFF, which would stop the fan instead of returning
+        control to the unit's own schedule.
+        """
+        if mode == MODE_AUTO:
+            return await self.device.async_cancel_override()
+        preset = AIRFLOW_PRESETS.get(mode)
+        if preset is None:
+            _LOGGER.error("Unknown ventilation option: %s", mode)
+            return False
         if duration is None:
             duration = self.override_duration
-        return await self.device.async_set_override(mode, duration)
+        return await self.device.async_set_override(preset, duration)
 
     async def async_set_raw_mode(self, value: int) -> bool:
         """Write a raw value to the override register."""

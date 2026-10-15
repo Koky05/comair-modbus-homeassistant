@@ -59,6 +59,7 @@ STOP_BITS_OPTIONS: Final[list[int]] = [1, 2]
 # Re-exported from the device library so the platforms have one import.
 from .library.const import (  # noqa: E402
     MANUFACTURER,
+    MODE_AUTO,
     MODE_NAMES,
     MODEL,
     VENTILATION_MODES,
@@ -83,6 +84,7 @@ __all__ = [
     "DEFAULT_STOP_BITS",
     "DOMAIN",
     "MANUFACTURER",
+    "MODE_AUTO",
     "MODE_NAMES",
     "MODEL",
     "PARITY_OPTIONS",

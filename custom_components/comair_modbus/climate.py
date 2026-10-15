@@ -14,7 +14,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import ComairModbusConfigEntry
-from .const import VENTILATION_MODES
+from .const import MODE_AUTO, VENTILATION_MODES
 from .coordinator import ComairModbusCoordinator
 
 
@@ -62,7 +62,7 @@ class ComairClimate(CoordinatorEntity[ComairModbusCoordinator], ClimateEntity):
     @property
     def preset_mode(self) -> str | None:
         """Return current preset mode."""
-        return self.coordinator.device.current_mode_name or "Auto"
+        return self.coordinator.device.current_mode_name or MODE_AUTO
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -81,7 +81,11 @@ class ComairClimate(CoordinatorEntity[ComairModbusCoordinator], ClimateEntity):
 
         duration = device.mode_duration or 0
         attrs["mode_duration_minutes"] = duration
-        attrs["mode_duration_text"] = "Indefinite" if duration == 0 else f"{duration} minutes"
+        attrs["mode_duration_text"] = (
+            "No override, unit runs its own schedule"
+            if duration == 0
+            else f"{duration} minutes"
+        )
 
         if (power := device.power) is not None:
             attrs["power_consumption"] = power
@@ -97,8 +101,7 @@ class ComairClimate(CoordinatorEntity[ComairModbusCoordinator], ClimateEntity):
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set preset mode."""
-        mode = VENTILATION_MODES.get(preset_mode, 0)
-        await self.coordinator.async_set_mode(mode)
+        await self.coordinator.async_set_mode(preset_mode)
 
 
 async def async_setup_entry(

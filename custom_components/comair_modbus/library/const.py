@@ -71,8 +71,8 @@ UNAVAILABLE: Final = 0x8000
 TEMP_MIN: Final = -50.0
 TEMP_MAX: Final = 80.0
 
-#: Override durations, in minutes, are clamped to these bounds.
-OVERRIDE_MIN_MINUTES: Final = 15
+#: Override durations, in minutes, are clamped to this upper bound. There is
+#: no lower bound: zero is the value that cancels an override.
 OVERRIDE_MAX_MINUTES: Final = 240
 
 # ============================================================================
@@ -80,9 +80,14 @@ OVERRIDE_MAX_MINUTES: Final = 240
 #
 # Register 40030 packs the airflow preset in the MSB and the override
 # duration in minutes in the LSB.
+#
+# Preset 0 is OFF, not automatic. Automatic control is expressed by a zero
+# duration, which cancels any override. Writing preset 0 with a duration runs
+# the unit with its fan stopped for that long, which is a different thing
+# entirely -- see issue #2.
 # ============================================================================
 
-MODE_AUTO: Final = 0
+MODE_OFF: Final = 0
 MODE_LOW: Final = 1
 MODE_MEDIUM: Final = 2
 MODE_HIGH: Final = 3
@@ -95,13 +100,23 @@ MODE_MAX: Final = 255
 #: Presets 5 and 6 exist on the unit but are not documented and not offered.
 MODE_HIDDEN: Final = (5, 6)
 
+#: The option that hands control back to the unit's own schedule.
+MODE_AUTO: Final = "Auto"
+
+#: Selectable airflow options. "Auto" is special: it is selected by writing a
+#: zero duration, never by selecting preset 0, which would stop the fan.
 VENTILATION_MODES: Final[dict[str, int]] = {
-    "Auto": MODE_AUTO,
+    MODE_AUTO: MODE_OFF,
     "Low": MODE_LOW,
     "Medium": MODE_MEDIUM,
     "High": MODE_HIGH,
     "Boost": MODE_BOOST,
     "Max": MODE_MAX,
+}
+
+#: Presets that name a fan speed. "Auto" is deliberately absent.
+AIRFLOW_PRESETS: Final[dict[str, int]] = {
+    k: v for k, v in VENTILATION_MODES.items() if k != MODE_AUTO
 }
 
 MODE_NAMES: Final[dict[int, str]] = {v: k for k, v in VENTILATION_MODES.items()}
@@ -110,9 +125,13 @@ MODE_NAMES: Final[dict[int, str]] = {v: k for k, v in VENTILATION_MODES.items()}
 VALID_MODES: Final[frozenset[int]] = frozenset(VENTILATION_MODES.values())
 
 
-def encode_override(mode: int, minutes: int) -> int:
-    """Pack an airflow preset and a duration into the 40030 register value."""
-    return ((mode & 0xFF) << 8) | (minutes & 0xFF)
+def encode_override(preset: int, minutes: int) -> int:
+    """Pack an airflow preset and a duration into the 40030 register value.
+
+    A zero ``minutes`` cancels the override and returns the unit to its own
+    schedule, whatever the preset byte carries.
+    """
+    return ((preset & 0xFF) << 8) | (minutes & 0xFF)
 
 
 def decode_override(value: int) -> tuple[int, int]:

@@ -38,8 +38,9 @@ from .const import (
     BYPASS_STATE_NAMES,
     FAN_CURVE,
     MODE_NAMES,
+    MODE_AUTO,
+    MODE_OFF,
     OVERRIDE_MAX_MINUTES,
-    OVERRIDE_MIN_MINUTES,
     VALID_MODES,
     ZONE_COUNT,
     ZONE_STRIDE,
@@ -285,36 +286,46 @@ class ComairHruC(Device):
 
     # -- ventilation mode -----------------------------------------------
 
-    @property
-    def current_mode(self) -> int | None:
-        """Active airflow preset ID.
+    def _override_register(self) -> int:
+        """The override register's word, preferring the value just written.
 
         The unit zeroes 40030 once it has acknowledged an override, so the
         last value written is held here and reported until the unit reports
         something else itself.
         """
         if self._last_override is not None:
-            return decode_override(self._last_override)[0]
-        override = self.settings.override
-        if override:
-            return decode_override(override)[0]
-        return 0
+            return self._last_override
+        return self.settings.override or 0
+
+    @property
+    def current_mode(self) -> int | None:
+        """Active airflow preset ID, or None when no override is in force."""
+        value = self._override_register()
+        if not value:
+            return None
+        return decode_override(value)[0]
 
     @property
     def current_mode_name(self) -> str | None:
-        """Active airflow preset, named."""
-        mode = self.current_mode
-        return MODE_NAMES.get(mode, "Unknown") if mode is not None else None
+        """Active airflow preset, named.
+
+        A zero duration means the unit is running its own schedule, which is
+        what "Auto" means here. Preset 0 with a real duration is the fan being
+        stopped, so the two are told apart by the duration, not the preset.
+        """
+        value = self._override_register()
+        if not value:
+            return MODE_AUTO
+        preset, minutes = decode_override(value)
+        if minutes == 0:
+            return MODE_AUTO
+        return MODE_NAMES.get(preset, "Unknown")
 
     @property
     def mode_duration(self) -> int | None:
-        """Override duration in minutes, or 0 for indefinite."""
-        if self._last_override is not None:
-            return decode_override(self._last_override)[1]
-        override = self.settings.override
-        if override:
-            return decode_override(override)[1]
-        return 0
+        """Override duration in minutes, or 0 when no override is in force."""
+        return decode_override(self._override_register())[1]
+
 
     @property
     def power(self) -> int | None:
@@ -361,17 +372,25 @@ class ComairHruC(Device):
 
         ``mode`` is one of :data:`VALID_MODES`, which includes the fixed
         maximum-airflow preset 255 alongside the four stepped speeds.
+
+        ``minutes`` of 0 cancels the override and hands the unit back its own
+        schedule. That is how "Auto" is selected: preset 0 with a real
+        duration is OFF, which stops the fan rather than returning control.
         """
         if mode not in VALID_MODES:
             _LOGGER.error("Invalid ventilation mode: %s (expected one of %s)", mode, sorted(VALID_MODES))
             return False
-        # The unit ignores a zero duration, so hold the override instead of
-        # letting a cleared slider turn into a no-op write.
-        if minutes < OVERRIDE_MIN_MINUTES:
-            minutes = OVERRIDE_MIN_MINUTES
+        # A zero duration is meaningful -- it cancels the override -- so only
+        # the upper bound is clamped.
+        if minutes < 0:
+            minutes = 0
         if minutes > OVERRIDE_MAX_MINUTES:
             minutes = OVERRIDE_MAX_MINUTES
         return await self._async_write_override(encode_override(mode, minutes), mode, minutes)
+
+    async def async_cancel_override(self) -> bool:
+        """Hand the unit back its own schedule, cancelling any override."""
+        return await self.async_set_override(MODE_OFF, 0)
 
     async def async_set_raw_override(self, value: int) -> bool:
         """Write an arbitrary value to the override register."""

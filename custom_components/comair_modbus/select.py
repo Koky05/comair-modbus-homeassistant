@@ -9,7 +9,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import ComairModbusConfigEntry
-from .const import VENTILATION_MODES
+from .const import MODE_AUTO, VENTILATION_MODES
 from .coordinator import ComairModbusCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,13 +38,12 @@ class ComairVentilationModeSelect(
     @property
     def current_option(self) -> str | None:
         """Return current selected option."""
-        return self.coordinator.device.current_mode_name or "Auto"
+        return self.coordinator.device.current_mode_name or MODE_AUTO
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
-        mode = VENTILATION_MODES.get(option, 0)
-        _LOGGER.debug("Setting ventilation mode to %s (mode=%d)", option, mode)
-        await self.coordinator.async_set_mode(mode)
+        _LOGGER.debug("Setting ventilation option to %s", option)
+        await self.coordinator.async_set_mode(option)
 
 
 async def async_setup_entry(
