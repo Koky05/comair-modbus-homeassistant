@@ -298,6 +298,15 @@ class ComairHruC(Device):
         return self.settings.override or 0
 
     @property
+    def override_value(self) -> int:
+        """Raw override register word currently in effect.
+
+        Public so a transient operation (calibration) can save the exact word
+        and write it back afterwards, restoring both the preset and duration.
+        """
+        return self._override_register()
+
+    @property
     def current_mode(self) -> int | None:
         """Active airflow preset ID, or None when no override is in force."""
         value = self._override_register()

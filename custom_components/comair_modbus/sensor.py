@@ -36,6 +36,12 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import ComairModbusConfigEntry
 from .coordinator import ComairModbusCoordinator
 from .library import ComairHruC
+from .library.calibration import (
+    CALIBRATION_TOLERANCE,
+    UNKNOWN_MODE,
+    infer_mode_from_power,
+)
+from .library.const import MODE_AUTO
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -477,6 +483,73 @@ class ComairEnergySensor(
         super()._handle_coordinator_update()
 
 
+class ComairActualFanModeSensor(
+    CoordinatorEntity[ComairModbusCoordinator], SensorEntity
+):
+    """Fan speed inferred from power, labelled to show who requested it.
+
+    With no override the unit runs its own schedule, so the value is shown as
+    ``Auto | <measured speed>``. When the user has chosen a mode, only the
+    measured speed is shown.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "actual_fan_mode"
+    _attr_icon = "mdi:fan-auto"
+
+    def __init__(
+        self,
+        coordinator: ComairModbusCoordinator,
+        device_info,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.slave_id}_actual_fan_mode"
+        self._attr_device_info = device_info
+
+    @property
+    def available(self) -> bool:
+        """Available while the status sub-system (power) answers."""
+        return self.coordinator.available("status")
+
+    @property
+    def _inferred_mode(self) -> str:
+        """Match current power against the learned map."""
+        return infer_mode_from_power(
+            self.coordinator.device.power,
+            self.coordinator.calibration_map,
+        )
+
+    @property
+    def _is_system_controlled(self) -> bool:
+        """Whether the unit is following its own schedule (no override)."""
+        return self.coordinator.device.current_mode_name == MODE_AUTO
+
+    @property
+    def native_value(self) -> str:
+        """Return the measured speed, prefixed when the system chose it."""
+        inferred = self._inferred_mode
+        if inferred == UNKNOWN_MODE:
+            return UNKNOWN_MODE
+        if self._is_system_controlled:
+            return f"{MODE_AUTO} | {inferred}"
+        return inferred
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Expose the measurement and its context."""
+        coordinator = self.coordinator
+        return {
+            "source": "system" if self._is_system_controlled else "user",
+            "requested_mode": coordinator.device.current_mode_name,
+            "inferred_mode": self._inferred_mode,
+            "measured_power_w": coordinator.device.power,
+            "calibrated_modes": coordinator.calibration_map or None,
+            "calibrated_at": coordinator.calibration_timestamp,
+            "tolerance_percent": round(CALIBRATION_TOLERANCE * 100),
+        }
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ComairModbusConfigEntry,
@@ -492,6 +565,7 @@ async def async_setup_entry(
         for description in SENSOR_DESCRIPTIONS
     ]
     entities.append(ComairEnergySensor(coordinator, device_info))
+    entities.append(ComairActualFanModeSensor(coordinator, device_info))
     async_add_entities(entities)
 
     # Zone entities are added as discovery finds them rather than only while
