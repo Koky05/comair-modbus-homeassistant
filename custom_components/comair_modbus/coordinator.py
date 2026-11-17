@@ -217,7 +217,14 @@ class ComairModbusCoordinator(DataUpdateCoordinator[UpdateReport]):
         restore_ok = False
 
         try:
+            # A stopped fan draws no power. The short settle window cannot
+            # capture the full spin-down (Off was measured at 7 W live), so
+            # Off is recorded as a known constant instead of being measured.
+            measured["Off"] = 0.0
+
             for mode, preset in CALIBRATION_PRESETS.items():
+                if mode == "Off":
+                    continue
                 if not await device.async_set_override(
                     preset, CALIBRATION_DURATION_MINUTES
                 ):
