@@ -125,37 +125,54 @@ MODE_NAMES: Final[dict[int, str]] = {v: k for k, v in VENTILATION_MODES.items()}
 VALID_MODES: Final[frozenset[int]] = frozenset(VENTILATION_MODES.values())
 
 # ============================================================================
-# POWER CALIBRATION
+# FAN SPEED CALIBRATION
 #
-# Each fixed airflow preset is run in turn and its power draw recorded, so the
-# actual fan speed can be inferred from power later on. "Auto" is deliberately
-# absent: it is the unit's own schedule, not a fixed speed with a stable draw.
-# "Off" is preset 0 *with* a real duration, which stops the fan -- do not
-# confuse it with the zero duration that selects Auto.
+# Only the modes the app lets the user change are measured, because their fan
+# speeds depend on the app's per-mode settings. "Off" and "Max" are fixed by
+# the unit (0% and 100%) and are seeded into the map without driving the fan
+# through them. "Auto" is deliberately absent: it is the unit's own schedule,
+# not a fixed speed.
 # ============================================================================
 
-#: Ordered set of modes the calibration button cycles through.
+#: Ordered set of app-configurable modes the calibration button measures.
 CALIBRATION_MODES: Final[tuple[str, ...]] = (
-    "Off",
     "Low",
     "Medium",
     "High",
     "Boost",
-    "Max",
 )
 
-#: Preset written for each calibration mode. Derived from CALIBRATION_MODES so
+#: Preset written for each measured mode. Derived from CALIBRATION_MODES so
 #: the ordered list and the write map cannot drift apart.
 CALIBRATION_PRESETS: Final[dict[str, int]] = {
-    name: (MODE_OFF if name == "Off" else VENTILATION_MODES[name])
-    for name in CALIBRATION_MODES
+    name: VENTILATION_MODES[name] for name in CALIBRATION_MODES
 }
 
-#: Seconds to let the fan settle after switching preset before sampling.
-CALIBRATION_SETTLE_SECONDS: Final = 3.0
-#: Seconds between the two power samples taken for each mode.
+#: Fixed fan speeds seeded into every saved map. These modes cannot be
+#: configured in the app, so there is nothing to measure for them.
+FIXED_CALIBRATION_READINGS: Final[dict[str, dict[str, float]]] = {
+    "Off": {"supply": 0.0, "extract": 0.0},
+    "Max": {"supply": 100.0, "extract": 100.0},
+}
+
+#: Schema stored with the map so an old watts-only map can be recognised and
+#: ignored until the user recalibrates with fan speeds.
+CALIBRATION_SCHEMA: Final = 2
+
+#: Grace period after a preset switch before settle detection starts, so a
+#: still-stale reading cannot be mistaken for a settled one.
+CALIBRATION_SETTLE_INITIAL_WAIT_SECONDS: Final = 2.0
+#: Seconds between fan-speed reads while waiting for the fan to settle.
+CALIBRATION_SETTLE_POLL_GAP_SECONDS: Final = 1.0
+#: Longest time to wait for a preset's fan speed to settle (seconds).
+CALIBRATION_SETTLE_MAX_SECONDS: Final = 25.0
+#: Number of consecutive stable reads needed before sampling a mode.
+CALIBRATION_SETTLE_STABLE_READINGS: Final = 2
+#: Max change (percentage points) between reads that still counts as settled.
+CALIBRATION_SETTLE_DELTA_PCT: Final = 1.0
+#: Seconds between the two fan-speed samples taken for each mode.
 CALIBRATION_SAMPLE_GAP_SECONDS: Final = 1.0
-#: Number of power samples averaged for each mode.
+#: Number of fan-speed samples averaged for each mode.
 CALIBRATION_SAMPLE_COUNT: Final = 2
 #: Override duration written while calibrating (minutes). Restored afterwards.
 CALIBRATION_DURATION_MINUTES: Final = 10

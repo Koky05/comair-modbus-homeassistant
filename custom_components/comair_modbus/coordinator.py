@@ -19,6 +19,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .const import (
     CAL_KEY_CALIBRATED_AT,
     CAL_KEY_MAP,
+    CAL_KEY_SCHEMA,
     CONF_MODE_CALIBRATION,
     DEFAULT_OVERRIDE_DURATION,
     DEFAULT_SCAN_INTERVAL,
@@ -30,7 +31,13 @@ from .library.const import (
     CALIBRATION_PRESETS,
     CALIBRATION_SAMPLE_COUNT,
     CALIBRATION_SAMPLE_GAP_SECONDS,
-    CALIBRATION_SETTLE_SECONDS,
+    CALIBRATION_SCHEMA,
+    CALIBRATION_SETTLE_DELTA_PCT,
+    CALIBRATION_SETTLE_INITIAL_WAIT_SECONDS,
+    CALIBRATION_SETTLE_MAX_SECONDS,
+    CALIBRATION_SETTLE_POLL_GAP_SECONDS,
+    CALIBRATION_SETTLE_STABLE_READINGS,
+    FIXED_CALIBRATION_READINGS,
     MODE_AUTO,
 )
 
@@ -163,7 +170,7 @@ class ComairModbusCoordinator(DataUpdateCoordinator[UpdateReport]):
         return await self.device.async_set_virtual_input(index, value)
 
     # ------------------------------------------------------------------
-    # Power calibration
+    # Fan-speed calibration
     # ------------------------------------------------------------------
 
     @property
@@ -172,22 +179,30 @@ class ComairModbusCoordinator(DataUpdateCoordinator[UpdateReport]):
         return self.entry.options.get(CONF_MODE_CALIBRATION, {})
 
     @property
-    def calibration_map(self) -> dict[str, float]:
-        """Learned mode -> measured watts map."""
+    def calibration_map(self) -> dict[str, dict[str, float | None]]:
+        """Learned mode -> {"supply": %, "extract": %} map.
+
+        An old watts-only map has no schema and is treated as uncalibrated so
+        stale readings can never be mistaken for fan speeds.
+        """
+        if self.calibration.get(CAL_KEY_SCHEMA) != CALIBRATION_SCHEMA:
+            return {}
         return self.calibration.get(CAL_KEY_MAP, {})
 
     @property
     def calibration_timestamp(self) -> str | None:
-        """UTC timestamp of the last calibration run."""
+        """UTC timestamp of the last usable calibration run."""
+        if self.calibration.get(CAL_KEY_SCHEMA) != CALIBRATION_SCHEMA:
+            return None
         return self.calibration.get(CAL_KEY_CALIBRATED_AT)
 
-    async def async_calibrate_modes(self) -> dict[str, float] | None:
-        """Measure every fixed mode's power draw and persist the map.
+    async def async_calibrate_modes(self) -> dict[str, dict[str, float | None]] | None:
+        """Measure every fixed mode's fan speed and persist the map.
 
-        Each preset runs for a few seconds, two power reads are averaged, and
-        the exact override word in force beforehand is restored. Only one map
-        is kept: re-running (e.g. for a new season) overwrites it. Returns the
-        new map, or ``None`` if the run failed.
+        Each preset runs until the fans settle, two fan-speed reads are
+        averaged, and the exact override word in force beforehand is restored.
+        Only one map is kept: re-running (e.g. for a new season) overwrites it.
+        Returns the new map, or ``None`` if the run failed.
         """
         if self._calibration_running:
             _LOGGER.warning("ComAir: calibration already running, ignoring request")
@@ -209,43 +224,51 @@ class ComairModbusCoordinator(DataUpdateCoordinator[UpdateReport]):
             await self.async_request_refresh()
         return result
 
-    async def _async_run_calibration(self) -> dict[str, float] | None:
-        """Run the calibration cycle. Caller holds ``_calibration_lock``."""
+    async def _async_run_calibration(self) -> dict[str, dict[str, float | None]] | None:
+        """Run the fan-speed calibration cycle. Caller holds the lock."""
         device = self.device
         saved_override = device.override_value
-        measured: dict[str, float] = {}
+        # Off and Max are fixed in the unit, so seed their known speeds and
+        # only drive the fan through the four app-configurable modes.
+        measured: dict[str, dict[str, float | None]] = dict(FIXED_CALIBRATION_READINGS)
         restore_ok = False
 
         try:
-            # A stopped fan draws no power. The short settle window cannot
-            # capture the full spin-down (Off was measured at 7 W live), so
-            # Off is recorded as a known constant instead of being measured.
-            measured["Off"] = 0.0
-
             for mode, preset in CALIBRATION_PRESETS.items():
-                if mode == "Off":
-                    continue
                 if not await device.async_set_override(
                     preset, CALIBRATION_DURATION_MINUTES
                 ):
                     raise RuntimeError(f"could not select {mode}")
 
-                await asyncio.sleep(CALIBRATION_SETTLE_SECONDS)
+                await self._async_wait_for_fan_settle(mode)
 
-                samples: list[float] = []
+                supply_samples: list[float] = []
+                extract_samples: list[float] = []
                 for _ in range(CALIBRATION_SAMPLE_COUNT):
-                    report = await device.async_poll(("status",))
-                    power = device.power if "status" in report.updated else None
-                    if power is not None:
-                        samples.append(float(power))
+                    supply, extract = await self._async_read_fan_speeds()
+                    if supply is not None:
+                        supply_samples.append(supply)
+                    if extract is not None:
+                        extract_samples.append(extract)
                     await asyncio.sleep(CALIBRATION_SAMPLE_GAP_SECONDS)
 
-                if not samples:
-                    raise RuntimeError(f"no power reading for {mode}")
+                if not supply_samples and not extract_samples:
+                    raise RuntimeError(f"no fan speed reading for {mode}")
 
-                averaged = sum(samples) / len(samples)
-                measured[mode] = round(averaged, 2)
-                _LOGGER.debug("ComAir: calibrated %s at %.2f W", mode, averaged)
+                reading: dict[str, float | None] = {
+                    "supply": (
+                        round(sum(supply_samples) / len(supply_samples), 2)
+                        if supply_samples
+                        else None
+                    ),
+                    "extract": (
+                        round(sum(extract_samples) / len(extract_samples), 2)
+                        if extract_samples
+                        else None
+                    ),
+                }
+                measured[mode] = reading
+                _LOGGER.debug("ComAir: calibrated %s at %s", mode, reading)
         except asyncio.CancelledError:
             _LOGGER.warning("ComAir: mode calibration cancelled")
             raise
@@ -255,7 +278,7 @@ class ComairModbusCoordinator(DataUpdateCoordinator[UpdateReport]):
         finally:
             try:
                 # Shield the hardware write so an HA shutdown or entry unload
-                # cannot abort it halfway through the ~30 s calibration.
+                # cannot abort it halfway through a multi-minute calibration.
                 restore_ok = await asyncio.shield(
                     device.async_set_raw_override(saved_override)
                 )
@@ -278,7 +301,46 @@ class ComairModbusCoordinator(DataUpdateCoordinator[UpdateReport]):
         options[CONF_MODE_CALIBRATION] = {
             CAL_KEY_MAP: measured,
             CAL_KEY_CALIBRATED_AT: datetime.now(timezone.utc).isoformat(),
+            CAL_KEY_SCHEMA: CALIBRATION_SCHEMA,
         }
         self.hass.config_entries.async_update_entry(self.entry, options=options)
-        _LOGGER.info("ComAir: mode power calibration saved: %s", measured)
+        _LOGGER.info("ComAir: mode fan-speed calibration saved: %s", measured)
         return measured
+
+    async def _async_read_fan_speeds(self) -> tuple[float | None, float | None]:
+        """Poll the fan subsystem and return (supply %, extract %)."""
+        report = await self.device.async_poll(("fans_outputs",))
+        if "fans_outputs" not in report.updated:
+            return None, None
+        return self.device.supply_fan_pct, self.device.extract_fan_pct
+
+    async def _async_wait_for_fan_settle(self, mode: str) -> None:
+        """Wait until both available fans stop changing after a preset switch."""
+        loop = asyncio.get_running_loop()
+        await asyncio.sleep(CALIBRATION_SETTLE_INITIAL_WAIT_SECONDS)
+        deadline = loop.time() + CALIBRATION_SETTLE_MAX_SECONDS
+        previous: tuple[float | None, float | None] | None = None
+        stable = 0
+
+        while True:
+            current = await self._async_read_fan_speeds()
+            if previous is not None and any(value is not None for value in current):
+                settled = all(
+                    before is None
+                    or after is None
+                    or abs(after - before) <= CALIBRATION_SETTLE_DELTA_PCT
+                    for before, after in zip(previous, current)
+                )
+                stable = stable + 1 if settled else 0
+                if stable >= CALIBRATION_SETTLE_STABLE_READINGS:
+                    return
+            previous = current
+
+            if loop.time() >= deadline:
+                _LOGGER.warning(
+                    "ComAir: fan did not settle for %s within %.0f s; using current reading",
+                    mode,
+                    CALIBRATION_SETTLE_MAX_SECONDS,
+                )
+                return
+            await asyncio.sleep(CALIBRATION_SETTLE_POLL_GAP_SECONDS)

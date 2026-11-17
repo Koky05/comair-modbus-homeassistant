@@ -37,9 +37,9 @@ from . import ComairModbusConfigEntry
 from .coordinator import ComairModbusCoordinator
 from .library import ComairHruC
 from .library.calibration import (
-    CALIBRATION_TOLERANCE,
+    CALIBRATION_FAN_TOLERANCE,
     UNKNOWN_MODE,
-    infer_mode_from_power,
+    infer_mode_from_fan_speed,
 )
 from .library.const import MODE_AUTO
 
@@ -486,7 +486,7 @@ class ComairEnergySensor(
 class ComairActualFanModeSensor(
     CoordinatorEntity[ComairModbusCoordinator], SensorEntity
 ):
-    """Fan speed inferred from power, labelled to show who requested it.
+    """Fan speed inferred from the calibrated fan speeds.
 
     With no override the unit runs its own schedule, so the value is shown as
     ``Auto | <measured speed>``. If the speed cannot be inferred it stays just
@@ -510,14 +510,16 @@ class ComairActualFanModeSensor(
 
     @property
     def available(self) -> bool:
-        """Available while the status sub-system (power) answers."""
-        return self.coordinator.available("status")
+        """Available while the fan sub-system answers."""
+        return self.coordinator.available("fans_outputs")
 
     @property
     def _inferred_mode(self) -> str:
-        """Match current power against the learned map."""
-        return infer_mode_from_power(
-            self.coordinator.device.power,
+        """Match current fan speeds against the learned map."""
+        device = self.coordinator.device
+        return infer_mode_from_fan_speed(
+            device.supply_fan_pct,
+            device.extract_fan_pct,
             self.coordinator.calibration_map,
         )
 
@@ -547,10 +549,11 @@ class ComairActualFanModeSensor(
             "source": "system" if self._is_system_controlled else "user",
             "requested_mode": coordinator.device.current_mode_name,
             "inferred_mode": self._inferred_mode,
-            "measured_power_w": coordinator.device.power,
+            "measured_supply_pct": coordinator.device.supply_fan_pct,
+            "measured_extract_pct": coordinator.device.extract_fan_pct,
             "calibrated_modes": coordinator.calibration_map or None,
             "calibrated_at": coordinator.calibration_timestamp,
-            "tolerance_percent": round(CALIBRATION_TOLERANCE * 100),
+            "tolerance_percent": round(CALIBRATION_FAN_TOLERANCE * 100),
         }
 
 
