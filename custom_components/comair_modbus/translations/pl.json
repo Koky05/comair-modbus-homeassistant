@@ -48,7 +48,19 @@
       "supply_fan_pct": { "name": "Prędkość wentylatora nawiewnego" },
       "extract_fan_pct": { "name": "Prędkość wentylatora wyciągowego" },
       "power": { "name": "Pobór mocy" },
-      "actual_fan_mode": { "name": "Aktualny tryb wentylacji" },
+      "actual_fan_mode": {
+        "name": "Aktualny tryb wentylacji",
+        "state": {
+          "Auto": "Auto",
+          "Off": "Wyłączone",
+          "Low": "Niski",
+          "Medium": "Normalny",
+          "High": "Wysoki",
+          "Boost": "Boost",
+          "Max": "Maksimum",
+          "Unknown": "Nieznany"
+        }
+      },
       "heat_recovery_efficiency": { "name": "Sprawność odzysku ciepła" },
       "energy": { "name": "Energia" },
       "run_time": { "name": "Czas pracy" },
@@ -83,16 +95,42 @@
     },
     "button": {
       "time_sync": { "name": "Synchronizacja zegara" },
-      "calibrate_modes": { "name": "Kalibruj moc trybów" }
+      "calibrate_modes": { "name": "Kalibruj prędkości wentylatora" }
     },
     "select": {
-      "ventilation_mode": { "name": "Tryb wentylacji" }
+      "ventilation_mode": {
+        "name": "Tryb wentylacji",
+        "state": {
+          "Auto": "Auto",
+          "Off": "Wyłączone",
+          "Low": "Niski",
+          "Medium": "Normalny",
+          "High": "Wysoki",
+          "Boost": "Boost",
+          "Max": "Maksimum"
+        }
+      }
     },
     "number": {
       "mode_duration": { "name": "Czas trwania trybu" }
     },
     "climate": {
-      "ventilation": { "name": "Wentylacja" }
+      "ventilation": {
+        "name": "Wentylacja",
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "Auto": "Auto",
+              "Off": "Wyłączone",
+              "Low": "Niski",
+              "Medium": "Normalny",
+              "High": "Wysoki",
+              "Boost": "Boost",
+              "Max": "Maksimum"
+            }
+          }
+        }
+      }
     }
   }
 }

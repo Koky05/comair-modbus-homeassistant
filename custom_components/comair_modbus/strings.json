@@ -48,7 +48,19 @@
       "supply_fan_pct": { "name": "Supply Fan Speed" },
       "extract_fan_pct": { "name": "Extract Fan Speed" },
       "power": { "name": "Power" },
-      "actual_fan_mode": { "name": "Actual Fan Mode" },
+      "actual_fan_mode": {
+        "name": "Actual Fan Mode",
+        "state": {
+          "auto": "Auto",
+          "off": "Off",
+          "low": "Low",
+          "medium": "Normal",
+          "high": "High",
+          "boost": "Boost",
+          "max": "Max",
+          "unknown": "Unknown"
+        }
+      },
       "heat_recovery_efficiency": { "name": "Heat Recovery Efficiency" },
       "energy": { "name": "Energy" },
       "run_time": { "name": "Run Time" },
@@ -83,16 +95,42 @@
     },
     "button": {
       "time_sync": { "name": "Sync Clock" },
-      "calibrate_modes": { "name": "Calibrate Mode Power" }
+      "calibrate_modes": { "name": "Calibrate Fan Speeds" }
     },
     "select": {
-      "ventilation_mode": { "name": "Ventilation Mode" }
+      "ventilation_mode": {
+        "name": "Ventilation Mode",
+        "state": {
+          "auto": "Auto",
+          "off": "Off",
+          "low": "Low",
+          "medium": "Normal",
+          "high": "High",
+          "boost": "Boost",
+          "max": "Max"
+        }
+      }
     },
     "number": {
       "mode_duration": { "name": "Mode Duration" }
     },
     "climate": {
-      "ventilation": { "name": "Ventilation" }
+      "ventilation": {
+        "name": "Ventilation",
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "auto": "Auto",
+              "off": "Off",
+              "low": "Low",
+              "medium": "Normal",
+              "high": "High",
+              "boost": "Boost",
+              "max": "Max"
+            }
+          }
+        }
+      }
     }
   }
 }

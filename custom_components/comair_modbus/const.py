@@ -31,11 +31,12 @@ CONF_DATA_BITS: Final = "data_bits"
 CONF_PARITY: Final = "parity"
 CONF_STOP_BITS: Final = "stop_bits"
 
-# Config-entry option holding the learned mode -> watts calibration. One map
-# is kept; re-running calibration overwrites it (e.g. summer/winter).
+# Config-entry option holding the learned mode -> fan-speed calibration. One
+# map is kept; re-running calibration overwrites it (e.g. summer/winter).
 CONF_MODE_CALIBRATION: Final = "mode_calibration"
 CAL_KEY_MAP: Final = "map"
 CAL_KEY_CALIBRATED_AT: Final = "calibrated_at"
+CAL_KEY_SCHEMA: Final = "schema"
 
 # Default values (matching Vent-Axia BMS settings)
 DEFAULT_PORT: Final = 502
@@ -69,7 +70,12 @@ from .library.const import (  # noqa: E402
     CALIBRATION_PRESETS,
     CALIBRATION_SAMPLE_COUNT,
     CALIBRATION_SAMPLE_GAP_SECONDS,
-    CALIBRATION_SETTLE_SECONDS,
+    CALIBRATION_SCHEMA,
+    CALIBRATION_SETTLE_DELTA_PCT,
+    CALIBRATION_SETTLE_INITIAL_WAIT_SECONDS,
+    CALIBRATION_SETTLE_MAX_SECONDS,
+    CALIBRATION_SETTLE_POLL_GAP_SECONDS,
+    CALIBRATION_SETTLE_STABLE_READINGS,
     MANUFACTURER,
     MODE_AUTO,
     MODE_NAMES,
@@ -81,12 +87,18 @@ __all__ = [
     "BAUD_RATE_OPTIONS",
     "CAL_KEY_CALIBRATED_AT",
     "CAL_KEY_MAP",
+    "CAL_KEY_SCHEMA",
     "CALIBRATION_DURATION_MINUTES",
     "CALIBRATION_MODES",
     "CALIBRATION_PRESETS",
     "CALIBRATION_SAMPLE_COUNT",
     "CALIBRATION_SAMPLE_GAP_SECONDS",
-    "CALIBRATION_SETTLE_SECONDS",
+    "CALIBRATION_SCHEMA",
+    "CALIBRATION_SETTLE_DELTA_PCT",
+    "CALIBRATION_SETTLE_INITIAL_WAIT_SECONDS",
+    "CALIBRATION_SETTLE_MAX_SECONDS",
+    "CALIBRATION_SETTLE_POLL_GAP_SECONDS",
+    "CALIBRATION_SETTLE_STABLE_READINGS",
     "CONF_BAUD_RATE",
     "CONF_DATA_BITS",
     "CONF_MODE_CALIBRATION",

@@ -48,7 +48,19 @@
       "supply_fan_pct": { "name": "Rýchlosť ventilátora prívodu" },
       "extract_fan_pct": { "name": "Rýchlosť ventilátora odvodu" },
       "power": { "name": "Príkon" },
-      "actual_fan_mode": { "name": "Aktuálny režim vetrania" },
+      "actual_fan_mode": {
+        "name": "Aktuálny režim vetrania",
+        "state": {
+          "Auto": "Auto",
+          "Off": "Vypnuté",
+          "Low": "Nízky",
+          "Medium": "Normálny",
+          "High": "Vysoký",
+          "Boost": "Boost",
+          "Max": "Maximum",
+          "Unknown": "Neznámy"
+        }
+      },
       "heat_recovery_efficiency": { "name": "Účinnosť rekuperácie" },
       "energy": { "name": "Energia" },
       "run_time": { "name": "Doba prevádzky" },
@@ -83,16 +95,42 @@
     },
     "button": {
       "time_sync": { "name": "Synchronizácia hodín" },
-      "calibrate_modes": { "name": "Kalibrovať výkon režimov" }
+      "calibrate_modes": { "name": "Kalibrovať rýchlosti ventilátora" }
     },
     "select": {
-      "ventilation_mode": { "name": "Režim vetrania" }
+      "ventilation_mode": {
+        "name": "Režim vetrania",
+        "state": {
+          "Auto": "Auto",
+          "Off": "Vypnuté",
+          "Low": "Nízky",
+          "Medium": "Normálny",
+          "High": "Vysoký",
+          "Boost": "Boost",
+          "Max": "Maximum"
+        }
+      }
     },
     "number": {
       "mode_duration": { "name": "Trvanie režimu" }
     },
     "climate": {
-      "ventilation": { "name": "Vetranie" }
+      "ventilation": {
+        "name": "Vetranie",
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "Auto": "Auto",
+              "Off": "Vypnuté",
+              "Low": "Nízky",
+              "Medium": "Normálny",
+              "High": "Vysoký",
+              "Boost": "Boost",
+              "Max": "Maximum"
+            }
+          }
+        }
+      }
     }
   }
 }
