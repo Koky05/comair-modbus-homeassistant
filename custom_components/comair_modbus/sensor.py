@@ -489,8 +489,9 @@ class ComairActualFanModeSensor(
     """Fan speed inferred from power, labelled to show who requested it.
 
     With no override the unit runs its own schedule, so the value is shown as
-    ``Auto | <measured speed>``. When the user has chosen a mode, only the
-    measured speed is shown.
+    ``Auto | <measured speed>``. If the speed cannot be inferred it stays just
+    ``Auto`` rather than ``Auto | Unknown``. When the user has chosen a mode,
+    only the measured speed is shown.
     """
 
     _attr_has_entity_name = True
@@ -530,7 +531,10 @@ class ComairActualFanModeSensor(
         """Return the measured speed, prefixed when the system chose it."""
         inferred = self._inferred_mode
         if inferred == UNKNOWN_MODE:
-            return UNKNOWN_MODE
+            # Nothing useful to append in Auto, so keep the state just "Auto"
+            # instead of "Auto | Unknown". An override with no match still
+            # reports "Unknown".
+            return MODE_AUTO if self._is_system_controlled else UNKNOWN_MODE
         if self._is_system_controlled:
             return f"{MODE_AUTO} | {inferred}"
         return inferred
