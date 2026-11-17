@@ -124,6 +124,42 @@ MODE_NAMES: Final[dict[int, str]] = {v: k for k, v in VENTILATION_MODES.items()}
 #: Every preset the integration accepts in a write.
 VALID_MODES: Final[frozenset[int]] = frozenset(VENTILATION_MODES.values())
 
+# ============================================================================
+# POWER CALIBRATION
+#
+# Each fixed airflow preset is run in turn and its power draw recorded, so the
+# actual fan speed can be inferred from power later on. "Auto" is deliberately
+# absent: it is the unit's own schedule, not a fixed speed with a stable draw.
+# "Off" is preset 0 *with* a real duration, which stops the fan -- do not
+# confuse it with the zero duration that selects Auto.
+# ============================================================================
+
+#: Ordered set of modes the calibration button cycles through.
+CALIBRATION_MODES: Final[tuple[str, ...]] = (
+    "Off",
+    "Low",
+    "Medium",
+    "High",
+    "Boost",
+    "Max",
+)
+
+#: Preset written for each calibration mode. Derived from CALIBRATION_MODES so
+#: the ordered list and the write map cannot drift apart.
+CALIBRATION_PRESETS: Final[dict[str, int]] = {
+    name: (MODE_OFF if name == "Off" else VENTILATION_MODES[name])
+    for name in CALIBRATION_MODES
+}
+
+#: Seconds to let the fan settle after switching preset before sampling.
+CALIBRATION_SETTLE_SECONDS: Final = 3.0
+#: Seconds between the two power samples taken for each mode.
+CALIBRATION_SAMPLE_GAP_SECONDS: Final = 1.0
+#: Number of power samples averaged for each mode.
+CALIBRATION_SAMPLE_COUNT: Final = 2
+#: Override duration written while calibrating (minutes). Restored afterwards.
+CALIBRATION_DURATION_MINUTES: Final = 10
+
 
 def encode_override(preset: int, minutes: int) -> int:
     """Pack an airflow preset and a duration into the 40030 register value.

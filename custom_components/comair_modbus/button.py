@@ -45,6 +45,35 @@ class ComairTimeSyncButton(
             _LOGGER.error("Could not sync the MVHR clock")
 
 
+class ComairCalibrateModesButton(
+    CoordinatorEntity[ComairModbusCoordinator], ButtonEntity
+):
+    """Button that learns each ventilation mode's power draw."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "calibrate_modes"
+    _attr_icon = "mdi:tune-variant"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(
+        self,
+        coordinator: ComairModbusCoordinator,
+        device_info,
+    ) -> None:
+        """Initialize the button."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.slave_id}_calibrate_modes"
+        self._attr_device_info = device_info
+
+    async def async_press(self) -> None:
+        """Run the calibration cycle."""
+        result = await self.coordinator.async_calibrate_modes()
+        if result is None:
+            _LOGGER.error("ComAir: mode power calibration did not complete")
+        else:
+            _LOGGER.info("ComAir: mode power calibration completed: %s", result)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ComairModbusConfigEntry,
@@ -55,4 +84,9 @@ async def async_setup_entry(
     coordinator = runtime_data.coordinator
     device_info = runtime_data.device_info
 
-    async_add_entities([ComairTimeSyncButton(coordinator, device_info)])
+    async_add_entities(
+        [
+            ComairTimeSyncButton(coordinator, device_info),
+            ComairCalibrateModesButton(coordinator, device_info),
+        ]
+    )

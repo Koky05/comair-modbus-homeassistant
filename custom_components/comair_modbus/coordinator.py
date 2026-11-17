@@ -1,7 +1,8 @@
 """DataUpdateCoordinator for the ComAir HRUC-Plus Modbus integration."""
 from __future__ import annotations
 
-from datetime import timedelta
+import asyncio
+from datetime import datetime, timedelta, timezone
 import logging
 
 from modbus_connection import (
@@ -15,9 +16,23 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DEFAULT_OVERRIDE_DURATION, DEFAULT_SCAN_INTERVAL
+from .const import (
+    CAL_KEY_CALIBRATED_AT,
+    CAL_KEY_MAP,
+    CONF_MODE_CALIBRATION,
+    DEFAULT_OVERRIDE_DURATION,
+    DEFAULT_SCAN_INTERVAL,
+)
 from .library import ComairHruC
-from .library.const import AIRFLOW_PRESETS, MODE_AUTO
+from .library.const import (
+    AIRFLOW_PRESETS,
+    CALIBRATION_DURATION_MINUTES,
+    CALIBRATION_PRESETS,
+    CALIBRATION_SAMPLE_COUNT,
+    CALIBRATION_SAMPLE_GAP_SECONDS,
+    CALIBRATION_SETTLE_SECONDS,
+    MODE_AUTO,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,14 +56,24 @@ class ComairModbusCoordinator(DataUpdateCoordinator[UpdateReport]):
             config_entry=entry,
         )
         self.unit = unit
+        self.entry = entry
         self.slave_id = slave_id
         self.device = ComairHruC(unit)
         self.override_duration: int = DEFAULT_OVERRIDE_DURATION
         self._failed: frozenset[str] = frozenset()
         #: True until the refresh that runs during setup has completed.
         self._setup_refresh = True
+        #: Calibration temporarily drives the fan; regular polls queue behind
+        #: it so a scheduled refresh cannot disturb a power reading.
+        self._calibration_lock = asyncio.Lock()
+        self._calibration_running = False
 
     async def _async_update_data(self) -> UpdateReport:
+        """Poll, queued behind a calibration run if one is in progress."""
+        async with self._calibration_lock:
+            return await self._async_poll()
+
+    async def _async_poll(self) -> UpdateReport:
         """Refresh the device and translate failures into UpdateFailed.
 
         The link reconnects on its own, so a dropped connection is reported
@@ -136,3 +161,117 @@ class ComairModbusCoordinator(DataUpdateCoordinator[UpdateReport]):
     async def async_set_virtual_input(self, index: int, value: bool) -> bool:
         """Write one BMS virtual input."""
         return await self.device.async_set_virtual_input(index, value)
+
+    # ------------------------------------------------------------------
+    # Power calibration
+    # ------------------------------------------------------------------
+
+    @property
+    def calibration(self) -> dict:
+        """Persisted calibration options (empty until the first run)."""
+        return self.entry.options.get(CONF_MODE_CALIBRATION, {})
+
+    @property
+    def calibration_map(self) -> dict[str, float]:
+        """Learned mode -> measured watts map."""
+        return self.calibration.get(CAL_KEY_MAP, {})
+
+    @property
+    def calibration_timestamp(self) -> str | None:
+        """UTC timestamp of the last calibration run."""
+        return self.calibration.get(CAL_KEY_CALIBRATED_AT)
+
+    async def async_calibrate_modes(self) -> dict[str, float] | None:
+        """Measure every fixed mode's power draw and persist the map.
+
+        Each preset runs for a few seconds, two power reads are averaged, and
+        the exact override word in force beforehand is restored. Only one map
+        is kept: re-running (e.g. for a new season) overwrites it. Returns the
+        new map, or ``None`` if the run failed.
+        """
+        if self._calibration_running:
+            _LOGGER.warning("ComAir: calibration already running, ignoring request")
+            return None
+
+        # Queue behind an in-flight poll rather than dropping the press; the
+        # flag rejects a second calibration request once the lock is held.
+        async with self._calibration_lock:
+            if self._calibration_running:
+                _LOGGER.warning("ComAir: calibration already running, ignoring request")
+                return None
+            self._calibration_running = True
+            try:
+                result = await self._async_run_calibration()
+            finally:
+                self._calibration_running = False
+
+        if result is not None:
+            await self.async_request_refresh()
+        return result
+
+    async def _async_run_calibration(self) -> dict[str, float] | None:
+        """Run the calibration cycle. Caller holds ``_calibration_lock``."""
+        device = self.device
+        saved_override = device.override_value
+        measured: dict[str, float] = {}
+        restore_ok = False
+
+        try:
+            for mode, preset in CALIBRATION_PRESETS.items():
+                if not await device.async_set_override(
+                    preset, CALIBRATION_DURATION_MINUTES
+                ):
+                    raise RuntimeError(f"could not select {mode}")
+
+                await asyncio.sleep(CALIBRATION_SETTLE_SECONDS)
+
+                samples: list[float] = []
+                for _ in range(CALIBRATION_SAMPLE_COUNT):
+                    report = await device.async_poll(("status",))
+                    power = device.power if "status" in report.updated else None
+                    if power is not None:
+                        samples.append(float(power))
+                    await asyncio.sleep(CALIBRATION_SAMPLE_GAP_SECONDS)
+
+                if not samples:
+                    raise RuntimeError(f"no power reading for {mode}")
+
+                averaged = sum(samples) / len(samples)
+                measured[mode] = round(averaged, 2)
+                _LOGGER.debug("ComAir: calibrated %s at %.2f W", mode, averaged)
+        except asyncio.CancelledError:
+            _LOGGER.warning("ComAir: mode calibration cancelled")
+            raise
+        except Exception as err:  # noqa: BLE001 - report, then restore in finally
+            _LOGGER.error("ComAir: mode calibration failed: %s", err)
+            return None
+        finally:
+            try:
+                # Shield the hardware write so an HA shutdown or entry unload
+                # cannot abort it halfway through the ~30 s calibration.
+                restore_ok = await asyncio.shield(
+                    device.async_set_raw_override(saved_override)
+                )
+            except asyncio.CancelledError:
+                _LOGGER.warning(
+                    "ComAir: calibration cancelled; restore left running in background"
+                )
+                restore_ok = False
+                raise
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.error(
+                    "ComAir: failed to restore mode after calibration: %s", err
+                )
+
+        if not restore_ok:
+            _LOGGER.error("ComAir: calibration not saved - previous mode was not restored")
+            return None
+
+        options = dict(self.entry.options)
+        options[CONF_MODE_CALIBRATION] = {
+            CAL_KEY_MAP: measured,
+            CAL_KEY_CALIBRATED_AT: datetime.now(timezone.utc).isoformat(),
+        }
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
+        _LOGGER.info("ComAir: mode power calibration saved: %s", measured)
+        return measured

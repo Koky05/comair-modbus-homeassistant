@@ -48,6 +48,7 @@
       "supply_fan_pct": { "name": "Supply Fan Speed" },
       "extract_fan_pct": { "name": "Extract Fan Speed" },
       "power": { "name": "Power" },
+      "actual_fan_mode": { "name": "Actual Fan Mode" },
       "heat_recovery_efficiency": { "name": "Heat Recovery Efficiency" },
       "energy": { "name": "Energy" },
       "run_time": { "name": "Run Time" },
@@ -81,7 +82,8 @@
       "virtual_input_10": { "name": "Virtual Input 10" }
     },
     "button": {
-      "time_sync": { "name": "Sync Clock" }
+      "time_sync": { "name": "Sync Clock" },
+      "calibrate_modes": { "name": "Calibrate Mode Power" }
     },
     "select": {
       "ventilation_mode": { "name": "Ventilation Mode" }

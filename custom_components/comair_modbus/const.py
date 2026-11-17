@@ -31,6 +31,12 @@ CONF_DATA_BITS: Final = "data_bits"
 CONF_PARITY: Final = "parity"
 CONF_STOP_BITS: Final = "stop_bits"
 
+# Config-entry option holding the learned mode -> watts calibration. One map
+# is kept; re-running calibration overwrites it (e.g. summer/winter).
+CONF_MODE_CALIBRATION: Final = "mode_calibration"
+CAL_KEY_MAP: Final = "map"
+CAL_KEY_CALIBRATED_AT: Final = "calibrated_at"
+
 # Default values (matching Vent-Axia BMS settings)
 DEFAULT_PORT: Final = 502
 DEFAULT_SLAVE_ID: Final = 2
@@ -58,6 +64,12 @@ STOP_BITS_OPTIONS: Final[list[int]] = [1, 2]
 
 # Re-exported from the device library so the platforms have one import.
 from .library.const import (  # noqa: E402
+    CALIBRATION_DURATION_MINUTES,
+    CALIBRATION_MODES,
+    CALIBRATION_PRESETS,
+    CALIBRATION_SAMPLE_COUNT,
+    CALIBRATION_SAMPLE_GAP_SECONDS,
+    CALIBRATION_SETTLE_SECONDS,
     MANUFACTURER,
     MODE_AUTO,
     MODE_NAMES,
@@ -67,8 +79,17 @@ from .library.const import (  # noqa: E402
 
 __all__ = [
     "BAUD_RATE_OPTIONS",
+    "CAL_KEY_CALIBRATED_AT",
+    "CAL_KEY_MAP",
+    "CALIBRATION_DURATION_MINUTES",
+    "CALIBRATION_MODES",
+    "CALIBRATION_PRESETS",
+    "CALIBRATION_SAMPLE_COUNT",
+    "CALIBRATION_SAMPLE_GAP_SECONDS",
+    "CALIBRATION_SETTLE_SECONDS",
     "CONF_BAUD_RATE",
     "CONF_DATA_BITS",
+    "CONF_MODE_CALIBRATION",
     "CONF_PARITY",
     "CONF_SLAVE_ID",
     "CONF_STOP_BITS",

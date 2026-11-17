@@ -48,6 +48,7 @@
       "supply_fan_pct": { "name": "Rychlost přívodního ventilátoru" },
       "extract_fan_pct": { "name": "Rychlost odvodního ventilátoru" },
       "power": { "name": "Příkon" },
+      "actual_fan_mode": { "name": "Aktuální režim větrání" },
       "heat_recovery_efficiency": { "name": "Účinnost rekuperace" },
       "energy": { "name": "Energie" },
       "run_time": { "name": "Doba provozu" },
@@ -81,7 +82,8 @@
       "virtual_input_10": { "name": "Virtuální vstup 10" }
     },
     "button": {
-      "time_sync": { "name": "Synchronizace hodin" }
+      "time_sync": { "name": "Synchronizace hodin" },
+      "calibrate_modes": { "name": "Kalibrovat výkon režimů" }
     },
     "select": {
       "ventilation_mode": { "name": "Režim větrání" }

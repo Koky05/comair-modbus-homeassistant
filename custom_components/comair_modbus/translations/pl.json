@@ -48,6 +48,7 @@
       "supply_fan_pct": { "name": "Prędkość wentylatora nawiewnego" },
       "extract_fan_pct": { "name": "Prędkość wentylatora wyciągowego" },
       "power": { "name": "Pobór mocy" },
+      "actual_fan_mode": { "name": "Aktualny tryb wentylacji" },
       "heat_recovery_efficiency": { "name": "Sprawność odzysku ciepła" },
       "energy": { "name": "Energia" },
       "run_time": { "name": "Czas pracy" },
@@ -81,7 +82,8 @@
       "virtual_input_10": { "name": "Wejście wirtualne 10" }
     },
     "button": {
-      "time_sync": { "name": "Synchronizacja zegara" }
+      "time_sync": { "name": "Synchronizacja zegara" },
+      "calibrate_modes": { "name": "Kalibruj moc trybów" }
     },
     "select": {
       "ventilation_mode": { "name": "Tryb wentylacji" }

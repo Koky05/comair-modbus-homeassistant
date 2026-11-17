@@ -15,6 +15,9 @@ Custom Home Assistant integration for **ComAir HRUC-Plus 3** / **Vent-Axia Senti
   configured for, discovered rather than assumed.
 - **Damper position**: The unit's own bypass state, read directly
 - **Climate Control**: HVAC-like entity with preset modes, including maximum airflow
+- **Mode power calibration**: A button measures each fan mode's power draw so an
+  **Actual Fan Mode** sensor can show the speed the fan is really running at,
+  even while the unit is in Auto
 - **Energy Tracking**: Integrated energy sensor for HA Energy dashboard
 - **Heat Recovery**: Calculated efficiency sensor
 - **Diagnostics**: Download the raw register map, which replays as a test fixture
@@ -26,10 +29,10 @@ Custom Home Assistant integration for **ComAir HRUC-Plus 3** / **Vent-Axia Senti
 
 | Platform | Count | Entities |
 |----------|-------|----------|
-| sensor | 21+ | Temperatures (4), Humidity (2), CO2 (2), Fan RPM (2), Fan Speed % (2), Power, Energy, Heat Recovery, Timers (3), Damper Position, Faults/Warnings/Notifications, Zone Temperature and Humidity (one per configured zone) |
+| sensor | 22+ | Temperatures (4), Humidity (2), CO2 (2), Fan RPM (2), Fan Speed % (2), Power, Energy, Heat Recovery, Timers (3), Damper Position, Faults/Warnings/Notifications, Actual Fan Mode, Zone Temperature and Humidity (one per configured zone) |
 | binary_sensor | 6 | Attention LED, Cooling Enable, Preheater Enable, Controlled Cooling/Heating, Summer Bypass |
 | switch | 10 | Virtual Inputs 1-10 (BMS control mapping) — hidden by default, see below |
-| button | 1 | Sync Clock (write HA time to MVHR) |
+| button | 2 | Sync Clock (write HA time to MVHR), Calibrate Mode Power |
 | select | 1 | Ventilation Mode (Auto/Low/Medium/High/Boost/Max) |
 | number | 1 | Mode Duration (15-240 min, step 15) |
 | climate | 1 | Ventilation with preset modes |
@@ -372,6 +375,31 @@ Control ventilation via the **select** entity or **climate** presets:
 | Boost | 100% | Maximum ventilation (PR4, Purge) |
 
 Fan speeds are configurable per mode via the Vent-Axia Connect app.
+
+### Mode power calibration
+
+Press the **Calibrate Mode Power** button to teach the integration how many
+watts each fixed mode draws. It runs Off, Low, Medium, High, Boost and Max for
+a few seconds each, averages two power readings per mode, saves the resulting
+`mode → watts` map in the config entry, and restores your previous ventilation
+mode when it finishes (also if it fails). A calibration takes roughly 30
+seconds, during which the fan is driven through the sequence.
+
+The map survives restarts. Only one map is kept: press the button again to
+overwrite it — for example once for summer and once for winter settings.
+
+The resulting **Actual Fan Mode** sensor matches live power against the map
+(±15%, with a 5 W floor for the near-zero Off reading) and reports:
+
+- `Auto | Low` — the unit is following its own schedule (no user override), but
+  measured power says the fan is running at Low.
+- `Low` — you selected a mode yourself, so there is no need to show the Auto
+  prefix.
+
+If power does not match any calibrated mode within tolerance, the sensor
+reports `Unknown`. Its attributes include the measured power, the requested
+mode, the source (`system` or `user`), the calibration map, its timestamp and
+the tolerance used. Until the first calibration the sensor reports `Unknown`.
 
 ---
 
